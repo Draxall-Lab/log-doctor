@@ -1,0 +1,13 @@
+{
+  "name": "log-doctor",
+  "display_name": "Log Doctor",
+  "short_name": "Log Doctor",
+  "version": "0.1.0",
+  "description": "Diagnoses Sapphire plugin issues using logs and plugin documentation.",
+  "author": "Draxall",
+  "capabilities": {
+    "tools": [
+      "tools/log-doctor.py"
+    ]
+  }
+}
