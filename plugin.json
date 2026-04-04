@@ -7,7 +7,15 @@
   "author": "Draxall",
   "capabilities": {
     "tools": [
-      "tools/log-doctor.py"
+      "tools/log_doctor.py"
     ]
-  }
+  },
+  "settings": [
+    {
+      "name": "sapphire_root",
+      "type": "string",
+      "default": "",
+      "description": "Optional override path to Sapphire root folder (leave blank to auto-detect)"
+    }
+  ]
 }
