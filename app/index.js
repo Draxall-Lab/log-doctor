@@ -116,17 +116,7 @@ function sectionVisible(source, type) {
   return sourceOn && typeOn;
 }
 
-function renderSection(title, lines, source, type) {
-  if (!sectionVisible(source, type)) return "";
-  return `
-    <section class="ld-card ld-wide">
-      <h2>${esc(title)}</h2>
-      ${groupedLinesHtml(lines)}
-    </section>
-  `;
-}
-
-function renderTopIssues(sections) {
+function getVisibleBlocks(sections) {
   const visibleBlocks = [];
 
   if (sectionVisible("sapphire", "warnings")) visibleBlocks.push(...(sections.sapphire_warnings || []));
@@ -145,11 +135,27 @@ function renderTopIssues(sections) {
   if (sectionVisible("story", "errors")) visibleBlocks.push(...(sections.story_errors || []));
   if (sectionVisible("story", "plugin")) visibleBlocks.push(...(sections.story_plugins || []));
 
-  const grouped = groupLines(visibleBlocks).slice(0, 8);
+  return visibleBlocks;
+}
+
+function renderSection(title, lines, source, type) {
+  if (!sectionVisible(source, type)) return "";
+  return `
+    <section class="ld-card ld-wide">
+      <h2>${esc(title)}</h2>
+      ${groupedLinesHtml(lines)}
+    </section>
+  `;
+}
+
+function renderTopIssues(sections) {
+  const grouped = groupLines(getVisibleBlocks(sections)).slice(0, 8);
 
   return `
     <section class="ld-card ld-wide">
-      <h2>Top Issues</h2>
+      <div class="ld-section-head">
+        <h2>Top Issues</h2>
+      </div>
       ${grouped.length ? grouped.map(item => {
         const cls = categoryClass(item.category);
         const tag = esc(String(item.category || "plugin").toUpperCase());
@@ -168,6 +174,110 @@ function renderTopIssues(sections) {
       }).join("") : "<div class='ld-empty'>None</div>"}
     </section>
   `;
+}
+
+function buildAnalysePayload() {
+  if (!_lastData) return null;
+
+  const sections = _lastData.sections || {};
+  const visibleBlocks = getVisibleBlocks(sections);
+  const grouped = groupLines(visibleBlocks).slice(0, 5);
+
+  return {
+    source: "log-doctor",
+    scope: "current-view",
+    generated_at: new Date().toISOString(),
+    filters: {
+      sources: {
+        sapphire: !!document.querySelector("#ld-source-sapphire")?.checked,
+        kokoro: !!document.querySelector("#ld-source-kokoro")?.checked,
+        startup: !!document.querySelector("#ld-source-startup")?.checked,
+        story: !!document.querySelector("#ld-source-story")?.checked
+      },
+      types: {
+        errors: !!document.querySelector("#ld-type-errors")?.checked,
+        warnings: !!document.querySelector("#ld-type-warnings")?.checked,
+        plugin: !!document.querySelector("#ld-type-plugin")?.checked,
+        debug: !!document.querySelector("#ld-type-debug")?.checked
+      },
+      sort: currentSortMode()
+    },
+    summary: _lastData.summary || {},
+    issue_count: grouped.length,
+    issues: grouped.map(item => ({
+      category: item.category,
+      message: item.message,
+      count: item.count,
+      first_seen: item.firstSeen,
+      last_seen: item.lastSeen,
+      sample: item.example
+    }))
+  };
+}
+
+function showToastSafe(message, type = "info") {
+  try {
+    if (window.ui?.showToast) {
+      window.ui.showToast(message, type);
+      return;
+    }
+
+    if (window.showToast) {
+      window.showToast(message, type);
+      return;
+    }
+
+    console.log(`[${type}] ${message}`);
+  } catch (err) {
+    console.log(`[toast:${type}] ${message}`, err);
+  }
+}
+
+async function sendMessageToChat(text) {
+  // TODO:
+  // Wire this to Sapphire's actual chat send path once confirmed in-app.
+  // For now this throws so the feature fails honestly rather than pretending.
+  throw new Error("Chat send is not wired yet");
+}
+
+async function analyseInChat() {
+  const payload = buildAnalysePayload();
+
+  if (!payload) {
+    showToastSafe("Nothing to analyse yet. Refresh the report first.", "warning");
+    return;
+  }
+
+  showToastSafe("Sending Log Doctor view to chat…", "info");
+
+  try {
+    const res = await fetch("/api/plugin/log-doctor/analyse", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || ""
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const prompt = String(data.prompt || "Analyse the current Log Doctor view");
+    const nonce = String(data.nonce || "").trim();
+
+    if (!nonce) {
+      throw new Error("No nonce returned from analyse route");
+    }
+
+    await sendMessageToChat(`${prompt} [log-doctor:${nonce}]`);
+
+    showToastSafe("Analysis sent. Check Chat for the response.", "success");
+  } catch (err) {
+    showToastSafe(`Failed to send analysis: ${err.message}`, "error");
+  }
 }
 
 async function loadReport() {
@@ -334,7 +444,17 @@ function injectStyles() {
     }
 
     .ld-wide { grid-column: 1 / -1; }
-    .ld-card h2, .ld-card h3 { margin-top: 0; }
+
+    .ld-card h2, .ld-card h3 {
+      margin-top: 0;
+    }
+
+    .ld-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
 
     .ld-kv {
       display: grid;
@@ -427,6 +547,7 @@ export function render(container) {
       <div class="ld-toolbar">
         <label>Max lines <input id="ld-max-lines" type="number" value="5000" min="100" max="20000" step="100"></label>
         <button id="ld-refresh">Refresh</button>
+        <button id="ld-analyse-chat">Analyse in Chat</button>
         <label>Sort
           <select id="ld-sort-mode">
             <option value="frequency">Frequency</option>
@@ -459,6 +580,7 @@ export function render(container) {
   `;
 
   container.querySelector("#ld-refresh")?.addEventListener("click", loadReport);
+  container.querySelector("#ld-analyse-chat")?.addEventListener("click", analyseInChat);
 
   [
     "#ld-source-sapphire",
