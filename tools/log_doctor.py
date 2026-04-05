@@ -1,4 +1,9 @@
-from __future__ import annotations
+import sys
+from pathlib import Path
+
+PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.append(str(PLUGIN_ROOT))
 
 from core.log_parser import analyse_logs
 
@@ -13,19 +18,17 @@ TOOLS = [
         "is_local": True,
         "function": {
             "name": "log_doctor_review",
-            "description": "Review recent Sapphire logs and return recent relevant lines such as errors, warnings, and plugin events.",
+            "description": "Return a brief Log Doctor summary. Full structured report is available in the Log Doctor app.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "max_lines": {
                         "type": "integer",
-                        "description": "How many recent lines to scan",
                         "minimum": 100,
-                        "maximum": 10000
+                        "maximum": 20000
                     },
                     "max_results": {
                         "type": "integer",
-                        "description": "How many matching lines to return",
                         "minimum": 5,
                         "maximum": 50
                     }
@@ -36,36 +39,12 @@ TOOLS = [
 ]
 
 
-def _format_result(result: dict) -> str:
-    lines = [
-        "Log Doctor report",
-        f"Sapphire root: {result.get('resolved_root', 'unknown')}",
-        f"Log directory: {result.get('log_dir', 'unknown')}",
-        f"Summary: {result.get('summary', 'No summary')}",
-        ""
-    ]
-
-    matches = result.get("matches", [])
-
-    if matches:
-        lines.append("Recent relevant lines:")
-        for m in matches:
-            lines.append(
-                f"[{m['category'].upper()}] {m['source']} | {m['text']}"
-            )
-    else:
-        lines.append("No relevant lines found.")
-
-    return "\n".join(lines)
-
-
 def execute(function_name, arguments, config, plugin_settings=None):
     if function_name != "log_doctor_review":
         return "Unknown function.", False
 
     args = arguments or {}
-
-    max_lines = int(args.get("max_lines", 2000))
+    max_lines = int(args.get("max_lines", 5000))
     max_results = int(args.get("max_results", 15))
 
     try:
@@ -74,7 +53,17 @@ def execute(function_name, arguments, config, plugin_settings=None):
             max_lines=max_lines,
             max_results=max_results,
         )
-        return _format_result(result), result.get("ok", False)
+
+        sapphire = result.get("sapphire_counts", {})
+        kokoro = result.get("kokoro_counts", {})
+
+        message = (
+            "Log Doctor summary\n"
+            f"Sapphire: {sapphire.get('error', 0)} error(s), {sapphire.get('warning', 0)} warning(s), {sapphire.get('plugin', 0)} plugin line(s)\n"
+            f"Kokoro: {kokoro.get('error', 0)} error(s), {kokoro.get('warning', 0)} warning(s), {kokoro.get('plugin', 0)} plugin line(s)\n"
+            "Full structured report is available in the Log Doctor app."
+        )
+        return message, result.get("ok", False)
 
     except Exception as e:
         return f"Log Doctor failed: {e}", False

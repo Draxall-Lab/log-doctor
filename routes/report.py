@@ -1,0 +1,85 @@
+import sys
+from pathlib import Path
+
+PLUGIN_ROOT = Path(__file__).resolve().parents[1]
+if str(PLUGIN_ROOT) not in sys.path:
+    sys.path.append(str(PLUGIN_ROOT))
+
+from core.log_parser import analyse_logs
+
+
+def _to_int(value, default):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _trim_matches(matches, limit=12):
+    return matches[-limit:] if matches else []
+
+
+def handle_report(body=None, settings=None, **path_params):
+    body = body or {}
+    settings = settings or {}
+
+    max_lines = _to_int(body.get("max_lines"), 5000)
+    max_results = _to_int(body.get("max_results"), 50)
+
+    result = analyse_logs(
+        plugin_settings=settings,
+        max_lines=max_lines,
+        max_results=max_results,
+    )
+
+    payload = {
+        "report_type": "log_doctor",
+        "format_version": 3,
+        "summary": {
+            "sapphire_root": result.get("resolved_root", "unknown"),
+            "log_directory": result.get("log_dir", "unknown"),
+            "overall_summary": result.get("summary", "No summary"),
+        },
+        "counts_by_source": {
+            "sapphire": {
+                "errors": result.get("sapphire_counts", {}).get("error", 0),
+                "warnings": result.get("sapphire_counts", {}).get("warning", 0),
+                "plugin_lines": result.get("sapphire_counts", {}).get("plugin", 0),
+            },
+            "kokoro": {
+                "errors": result.get("kokoro_counts", {}).get("error", 0),
+                "warnings": result.get("kokoro_counts", {}).get("warning", 0),
+                "plugin_lines": result.get("kokoro_counts", {}).get("plugin", 0),
+            },
+            "startup": {
+                "errors": result.get("startup_counts", {}).get("error", 0),
+                "warnings": result.get("startup_counts", {}).get("warning", 0),
+                "plugin_lines": result.get("startup_counts", {}).get("plugin", 0),
+            },
+            "story": {
+                "errors": result.get("story_counts", {}).get("error", 0),
+                "warnings": result.get("story_counts", {}).get("warning", 0),
+                "plugin_lines": result.get("story_counts", {}).get("plugin", 0),
+            }
+        },
+        "sections": {
+            "sapphire_errors": _trim_matches(result.get("sapphire_categories", {}).get("errors", []), 12),
+            "sapphire_warnings": _trim_matches(result.get("sapphire_categories", {}).get("warnings", []), 12),
+            "sapphire_plugins": _trim_matches(result.get("sapphire_categories", {}).get("plugins", []), 12),
+
+            "kokoro_errors": _trim_matches(result.get("kokoro_categories", {}).get("errors", []), 12),
+            "kokoro_warnings": _trim_matches(result.get("kokoro_categories", {}).get("warnings", []), 12),
+            "kokoro_plugins": _trim_matches(result.get("kokoro_categories", {}).get("plugins", []), 12),
+
+            "startup_errors": _trim_matches(result.get("startup_categories", {}).get("errors", []), 12),
+            "startup_warnings": _trim_matches(result.get("startup_categories", {}).get("warnings", []), 12),
+            "startup_plugins": _trim_matches(result.get("startup_categories", {}).get("plugins", []), 12),
+
+            "story_errors": _trim_matches(result.get("story_categories", {}).get("errors", []), 12),
+            "story_warnings": _trim_matches(result.get("story_categories", {}).get("warnings", []), 12),
+            "story_plugins": _trim_matches(result.get("story_categories", {}).get("plugins", []), 12),
+        },
+        "debug": result.get("debug", {})
+    }
+
+    return payload

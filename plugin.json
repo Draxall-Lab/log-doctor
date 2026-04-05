@@ -2,20 +2,35 @@
   "name": "log-doctor",
   "display_name": "Log Doctor",
   "short_name": "Log Doctor",
-  "version": "0.1.0",
-  "description": "Diagnoses Sapphire plugin issues using logs and plugin documentation.",
+  "version": "0.2.0",
+  "description": "Diagnoses Sapphire issues using logs and a structured diagnostics panel.",
   "author": "Draxall",
+  "icon": "🩺",
   "capabilities": {
     "tools": [
       "tools/log_doctor.py"
+    ],
+    "routes": [
+      {
+        "method": "POST",
+        "path": "report",
+        "handler": "routes/report.py:handle_report"
+      }
+    ],
+    "app": {
+      "label": "Log Doctor",
+      "icon": "🩺",
+      "description": "Structured log diagnostics console",
+      "nav": true
+    },
+    "settings": [
+      {
+        "key": "sapphire_root",
+        "type": "string",
+        "label": "Sapphire Root",
+        "default": "",
+        "help": "Optional override path to Sapphire root folder."
+      }
     ]
-  },
-  "settings": [
-    {
-      "name": "sapphire_root",
-      "type": "string",
-      "default": "",
-      "description": "Optional override path to Sapphire root folder (leave blank to auto-detect)"
-    }
-  ]
+  }
 }
