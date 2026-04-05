@@ -216,28 +216,94 @@ function buildAnalysePayload() {
 }
 
 function showToastSafe(message, type = "info") {
-  try {
-    if (window.ui?.showToast) {
-      window.ui.showToast(message, type);
-      return;
-    }
+  console.log(`[Log Doctor][${type}] ${message}`);
 
-    if (window.showToast) {
-      window.showToast(message, type);
-      return;
-    }
+  const status = document.querySelector("#ld-status");
+  if (!status) return;
 
-    console.log(`[${type}] ${message}`);
-  } catch (err) {
-    console.log(`[toast:${type}] ${message}`, err);
-  }
+  status.textContent = message;
+  status.dataset.state = type;
+
+  clearTimeout(showToastSafe._timer);
+  showToastSafe._timer = setTimeout(() => {
+    status.textContent = "Ready";
+    delete status.dataset.state;
+  }, 3500);
 }
 
 async function sendMessageToChat(text) {
-  // TODO:
-  // Wire this to Sapphire's actual chat send path once confirmed in-app.
-  // For now this throws so the feature fails honestly rather than pretending.
-  throw new Error("Chat send is not wired yet");
+  console.log("[Log Doctor] sendMessageToChat called with:", text);
+
+  const doc =
+    window.top?.document ||
+    window.parent?.document ||
+    document;
+
+  const input =
+    doc.querySelector("textarea") ||
+    doc.querySelector("input[type='text']");
+
+  if (!input) {
+    throw new Error("Chat input not found");
+  }
+
+  input.focus();
+  input.value = text;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  console.log("[Log Doctor] Chat input populated");
+
+  input.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key: "Enter",
+      code: "Enter",
+      which: 13,
+      keyCode: 13,
+      bubbles: true
+    })
+  );
+
+  input.dispatchEvent(
+    new KeyboardEvent("keypress", {
+      key: "Enter",
+      code: "Enter",
+      which: 13,
+      keyCode: 13,
+      bubbles: true
+    })
+  );
+
+  input.dispatchEvent(
+    new KeyboardEvent("keyup", {
+      key: "Enter",
+      code: "Enter",
+      which: 13,
+      keyCode: 13,
+      bubbles: true
+    })
+  );
+
+  console.log("[Log Doctor] Tried Enter key send");
+
+  if (input.form) {
+    input.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    console.log("[Log Doctor] Submitted via form");
+    return;
+  }
+
+  const btn =
+    doc.querySelector("button[type='submit']") ||
+    Array.from(doc.querySelectorAll("button")).find(
+      b => /send/i.test((b.textContent || "").trim()) || b.getAttribute("aria-label")?.match(/send/i)
+    );
+
+  if (btn) {
+    btn.click();
+    console.log("[Log Doctor] Submitted via button click");
+    return;
+  }
+
+  throw new Error("Could not trigger chat send");
 }
 
 async function analyseInChat() {
@@ -266,13 +332,8 @@ async function analyseInChat() {
 
     const data = await res.json();
     const prompt = String(data.prompt || "Analyse the current Log Doctor view");
-    const nonce = String(data.nonce || "").trim();
 
-    if (!nonce) {
-      throw new Error("No nonce returned from analyse route");
-    }
-
-    await sendMessageToChat(`${prompt} [log-doctor:${nonce}]`);
+    await sendMessageToChat(prompt);
 
     showToastSafe("Analysis sent. Check Chat for the response.", "success");
   } catch (err) {
@@ -379,7 +440,19 @@ function injectStyles() {
   const style = document.createElement("style");
   style.id = "log-doctor-app-styles";
   style.textContent = `
-    .ld-shell { padding: 16px; color: var(--text); }
+    .ld-shell {
+      padding: 16px;
+      color: var(--text);
+      overflow-y: auto;
+      max-height: 100%;
+      box-sizing: border-box;
+    }
+
+    #app-log-doctor,
+    [data-app="log-doctor"] {
+      min-height: 0;
+    }
+
     .ld-toolbar {
       display: flex;
       gap: 12px;
@@ -387,14 +460,69 @@ function injectStyles() {
       margin-bottom: 16px;
       flex-wrap: wrap;
     }
-    .ld-toolbar input, .ld-toolbar button, .ld-toolbar select {
+
+    /* Align label + select properly (fixes Sort misalignment) */
+    .ld-toolbar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ld-toolbar input,
+    .ld-toolbar button,
+    .ld-toolbar select {
       background: var(--bg-secondary);
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 8px 10px;
     }
-    .ld-toolbar button { cursor: pointer; }
+
+    .ld-toolbar button {
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* Button colours */
+    #ld-refresh {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: #fff;
+    }
+
+    #ld-refresh:hover {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+
+    #ld-analyse-chat {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: #fff;
+    }
+
+    #ld-analyse-chat:hover {
+      background: #16a34a;
+      border-color: #16a34a;
+    }
+
+    /* Status line as "toast" */
+    .ld-status {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .ld-status[data-state="success"] {
+      color: #22c55e;
+    }
+
+    .ld-status[data-state="warning"] {
+      color: #f0b84b;
+    }
+
+    .ld-status[data-state="error"] {
+      color: #ff6b6b;
+    }
 
     .ld-filters {
       display: flex;
@@ -427,8 +555,6 @@ function injectStyles() {
       align-items: center;
       font-size: 13px;
     }
-
-    .ld-status { color: var(--text-muted); }
 
     .ld-grid {
       display: grid;

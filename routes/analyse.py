@@ -1,7 +1,6 @@
 import secrets
 from datetime import datetime, timezone
 
-# noinspection PyUnresolvedReferences
 try:
     from core.plugin_loader import plugin_loader  # type: ignore
 except ImportError:
@@ -24,17 +23,15 @@ def _get_state():
         return None
 
 
-def handle(body: dict, settings: dict) -> dict:
+def handle(body: dict, settings: dict, **kwargs) -> dict:
     payload = body or {}
     state = _get_state()
 
     if state is None:
         return {"ok": False, "error": "Plugin state unavailable"}
 
-    nonce = secrets.token_urlsafe(8)
-
     pending = {
-        "nonce": nonce,
+        "id": secrets.token_urlsafe(8),
         "created_at": _utc_now_iso(),
         "prompt": DEFAULT_PROMPT,
         "payload": payload,
@@ -44,6 +41,5 @@ def handle(body: dict, settings: dict) -> dict:
 
     return {
         "ok": True,
-        "nonce": nonce,
         "prompt": DEFAULT_PROMPT,
     }

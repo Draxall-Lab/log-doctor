@@ -10,11 +10,19 @@
     "tools": [
       "tools/log_doctor.py"
     ],
+    "hooks": {
+      "pre_chat": "hooks/context.py"
+    },
     "routes": [
       {
         "method": "POST",
         "path": "report",
         "handler": "routes/report.py:handle_report"
+      },
+      {
+        "method": "POST",
+        "path": "analyse",
+        "handler": "routes/analyse.py:handle"
       }
     ],
     "app": {

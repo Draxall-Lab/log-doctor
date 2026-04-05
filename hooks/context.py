@@ -1,16 +1,13 @@
-import json
-import re
 from datetime import datetime, timezone
 
-# noinspection PyUnresolvedReferences
 try:
     from core.plugin_loader import plugin_loader  # type: ignore
 except ImportError:
     plugin_loader = None
 
-MARKER_RE = re.compile(r"\s*\[log-doctor:([A-Za-z0-9_\-]+)\]\s*", re.IGNORECASE)
 PENDING_KEY = "pending_analysis"
 TTL_SECONDS = 300  # 5 minutes
+TRIGGER_PROMPT = "Analyse the current Log Doctor view"
 
 
 def _get_state():
@@ -131,38 +128,24 @@ def _build_context(payload: dict) -> str:
         "Issues:\n"
         f"{_format_issues(issues)}\n\n"
         "Use this context to analyse the log state for this turn only. "
-        "Do not mention hidden payloads, nonces, or internal markers."
+        "Do not mention hidden payloads or internal transport details."
     )
 
 
 def pre_chat(event):
-    text = event.input or ""
-    match = MARKER_RE.search(text)
-    if not match:
+    text = (event.input or "").strip()
+    if text != TRIGGER_PROMPT:
         return
 
-    nonce = match.group(1).strip()
     state = _get_state()
     if state is None:
-        # Strip marker anyway so the user does not see plumbing if state is unavailable
-        event.input = MARKER_RE.sub(" ", text).strip()
         return
 
     pending = state.get(PENDING_KEY)
     if not pending or not isinstance(pending, dict):
-        event.input = MARKER_RE.sub(" ", text).strip()
         return
 
-    pending_nonce = str(pending.get("nonce", "")).strip()
     created_at = pending.get("created_at", "")
-
-    # Always strip the marker from the visible/processed message
-    cleaned_text = MARKER_RE.sub(" ", text).strip()
-    event.input = cleaned_text
-
-    if not pending_nonce or nonce != pending_nonce:
-        return
-
     if _is_expired(created_at):
         _cleanup_pending(state)
         return
@@ -170,12 +153,10 @@ def pre_chat(event):
     payload = pending.get("payload") or {}
     context_text = _build_context(payload)
 
-    # Inject hidden context for this turn
     event.input = (
-        f"{cleaned_text}\n\n"
+        f"{TRIGGER_PROMPT}\n\n"
         "[Hidden Log Doctor context]\n"
         f"{context_text}"
     ).strip()
 
-    # One-shot consumption
     _cleanup_pending(state)
