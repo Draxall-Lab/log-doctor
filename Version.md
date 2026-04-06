@@ -1,32 +1,58 @@
-Log Doctor v0.3.5
+# Log Doctor v0.3.5
 
 Release Type:
-Minor Feature Release / Stability Milestone
+Stability Milestone / Architecture Shift
 
-Highlights:
-- UI-scoped, payload-driven analysis system
-- Removal of tool-based analysis to prevent recursion
-- Full anti-hammering protection with cooldown handling
-- Debug panel with last analyse payload + clipboard export
-- Theme-safe UI using tokenised design system (--ld-*)
-- Ghost-style action buttons for cross-theme compatibility
-- Improved readability across light, dark, and custom themes
+---
+
+## 🚀 Highlights
+
+- Fully implemented **payload-driven analysis system**
+- Removed tool-based analysis to eliminate recursion risks
+- UI-scoped analysis across full view, sections, and individual issues
+- Debug panel with **last analyse payload + clipboard export**
+- Theme-safe UI using tokenised design system (`--ld-*`)
 - Verified compatibility with external theme plugins (e.g. Wolf’s Themes)
 
-Architecture:
+---
+
+## 🧠 Architecture
+
 - Structured payload → hidden context → chat interpretation
-- No exposed analysis tools
+- Payload is the single source of truth
 - In-memory payload registry replaces DOM embedding
+- No exposed analysis tools
 
-Stability:
-- Passed functional testing across all analysis scopes
-- Passed stress testing (rapid input, cooldown triggering)
+This version marks the transition to a fully decoupled analysis model.
+
+---
+
+## 🛡️ Stability & Behaviour
+
+- Stable under rapid repeated input (anti-hammering + cooldown handling)
 - No LLM crashes under sustained load
-- Graceful degradation when LLM is unavailable
+- Consistent behaviour across all analysis scopes
+- Continues to function when no LLM provider is available
 
-Notes:
-- Hidden context may occasionally surface under extreme abuse conditions
+---
+
+## 🧪 Testing
+
+- Functional testing across all analysis scopes
+- Stress testing (rapid input, cooldown triggering)
+- UI validation across light, dark, and custom themes
+
+---
+
+## ⚠️ Notes
+
+- Hidden context may occasionally surface under extreme rapid input
 - UI feedback prioritises clarity over animation
 
-Status:
-Production-ready for controlled use and wider testing
+These are edge-case behaviours and do not affect normal use.
+
+---
+
+## 📦 Status
+
+Production-ready for controlled release and wider community testing
