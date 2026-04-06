@@ -1,11 +1,20 @@
 let _container = null;
 let _lastData = null;
+let _analysePayloads = new Map();
+let _analyseSeq = 0;
+let _analyseInFlight = false;
+let _analyseCooldownUntil = 0;
+let _lastAnalysePayload = null;
 
 function esc(text) {
   return String(text ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function escAttr(text) {
+  return esc(text).replaceAll('"', "&quot;");
 }
 
 function normaliseMessage(text) {
@@ -27,11 +36,64 @@ function currentSortMode() {
   return el ? el.value : "frequency";
 }
 
+function currentTextFilter() {
+  const el = document.querySelector("#ld-text-filter");
+  return el ? String(el.value || "").trim() : "";
+}
+
+function parseFilterTerms(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map(part => part.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function categoryClass(category) {
   const c = String(category || "").toLowerCase();
   if (c === "error") return "ld-tag-error";
   if (c === "warning") return "ld-tag-warning";
   return "ld-tag-plugin";
+}
+
+function registerAnalysePayload(payload) {
+  const id = `ldp-${++_analyseSeq}`;
+  _analysePayloads.set(id, payload);
+  return id;
+}
+
+function isAnalyseCoolingDown() {
+  return Date.now() < _analyseCooldownUntil;
+}
+
+function setAnalyseUiBusy(isBusy) {
+  const busy = isBusy || isAnalyseCoolingDown();
+  _analyseInFlight = isBusy;
+
+  const mainBtn = document.querySelector("#ld-analyse-chat");
+  if (mainBtn) {
+    mainBtn.disabled = busy;
+    mainBtn.textContent = busy ? "Analysing..." : "Analyse in Chat";
+  }
+
+  document.querySelectorAll("[data-ld-analyse-id]").forEach(btn => {
+    btn.disabled = busy;
+    btn.textContent = busy ? "⏳" : "🧠";
+    btn.classList.toggle("ld-busy", busy);
+  });
+}
+
+function startAnalyseCooldown(ms = 8000) {
+  _analyseCooldownUntil = Date.now() + ms;
+  setAnalyseUiBusy(true);
+
+  clearTimeout(startAnalyseCooldown._timer);
+  startAnalyseCooldown._timer = setTimeout(() => {
+    _analyseCooldownUntil = 0;
+    setAnalyseUiBusy(false);
+    showToastSafe("Analysis ready again.", "success");
+  }, ms);
 }
 
 function groupLines(lines) {
@@ -44,9 +106,13 @@ function groupLines(lines) {
     const normalised = normaliseMessage(rawText);
     const ts = extractTimestamp(rawText);
     const category = String(line.category || "plugin").toLowerCase();
+    const source = String(line.source || "unknown").toLowerCase();
 
-    if (!map.has(normalised)) {
-      map.set(normalised, {
+    const key = `${source}::${category}::${normalised}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        source,
         category,
         message: normalised,
         count: 1,
@@ -55,7 +121,7 @@ function groupLines(lines) {
         example: rawText
       });
     } else {
-      const entry = map.get(normalised);
+      const entry = map.get(key);
       entry.count += 1;
 
       if (ts && (!entry.firstSeen || ts < entry.firstSeen)) entry.firstSeen = ts;
@@ -77,6 +143,41 @@ function groupLines(lines) {
   return grouped;
 }
 
+function matchesTerms(item, terms) {
+  if (!terms.length) return true;
+
+  const haystack = [
+    item.source,
+    item.category,
+    item.message,
+    item.example
+  ].join(" ").toLowerCase();
+
+  return terms.some(term => haystack.includes(term));
+}
+
+function applyTextFilterToGrouped(grouped) {
+  const terms = parseFilterTerms(currentTextFilter());
+  if (!terms.length) return grouped;
+  return grouped.filter(item => matchesTerms(item, terms));
+}
+
+function applyTextFilterToLines(lines) {
+  const terms = parseFilterTerms(currentTextFilter());
+  if (!terms.length) return lines || [];
+
+  return (lines || []).filter(line => {
+    const haystack = [
+      String(line.source || ""),
+      String(line.category || ""),
+      normaliseMessage(String(line.text || "")),
+      String(line.text || "")
+    ].join(" ").toLowerCase();
+
+    return terms.some(term => haystack.includes(term));
+  });
+}
+
 function kvHtml(obj) {
   if (!obj) return "<div class='ld-empty'>None</div>";
   return Object.entries(obj).map(([k, v]) => {
@@ -84,28 +185,61 @@ function kvHtml(obj) {
   }).join("");
 }
 
-function groupedLinesHtml(lines) {
-  const grouped = groupLines(lines);
-  if (!grouped.length) return "<div class='ld-empty'>None</div>";
+function analyseButtonHtml(payload, title = "Analyse this in chat", extraClass = "") {
+  const payloadId = registerAnalysePayload(payload);
+  return `
+    <button
+      class="ld-icon-btn ${extraClass}".trim()
+      data-ld-analyse-id="${escAttr(payloadId)}"
+      title="${escAttr(title)}"
+      aria-label="${escAttr(title)}"
+      type="button"
+      ${(_analyseInFlight || isAnalyseCoolingDown()) ? "disabled" : ""}
+    >${(_analyseInFlight || isAnalyseCoolingDown()) ? "⏳" : "🧠"}</button>
+  `;
+}
 
-  return grouped.map(item => {
-    const cls = categoryClass(item.category);
-    const tag = esc(String(item.category || "plugin").toUpperCase());
-    const hotClass = item.count >= 5 ? " ld-hot" : "";
+function activeFilterState() {
+  return {
+    sources: {
+      sapphire: !!document.querySelector("#ld-source-sapphire")?.checked,
+      kokoro: !!document.querySelector("#ld-source-kokoro")?.checked,
+      startup: !!document.querySelector("#ld-source-startup")?.checked,
+      story: !!document.querySelector("#ld-source-story")?.checked
+    },
+    types: {
+      errors: !!document.querySelector("#ld-type-errors")?.checked,
+      warnings: !!document.querySelector("#ld-type-warnings")?.checked,
+      plugin: !!document.querySelector("#ld-type-plugin")?.checked,
+      debug: !!document.querySelector("#ld-type-debug")?.checked
+    },
+    sort: currentSortMode(),
+    text_filter: currentTextFilter(),
+    text_terms: parseFilterTerms(currentTextFilter())
+  };
+}
 
-    return `
-      <div class="ld-line${hotClass}">
-        <div class="ld-line-head">
-          <span class="ld-tag ${cls}">[${tag}]</span>
-          <span class="ld-count">×${esc(item.count)}</span>
-          ${item.firstSeen ? `<span class="ld-time">first: ${esc(item.firstSeen)}</span>` : ""}
-          ${item.lastSeen ? `<span class="ld-time">last: ${esc(item.lastSeen)}</span>` : ""}
-          ${item.count >= 5 ? `<span class="ld-hot-badge">HOT</span>` : ""}
-        </div>
-        <div class="ld-line-body">${esc(item.message)}</div>
-      </div>
-    `;
-  }).join("");
+function buildIssuePayload(item, label = "Issue") {
+  return {
+    source: "log-doctor",
+    scope: "single-issue",
+    label,
+    generated_at: new Date().toISOString(),
+    filters: activeFilterState(),
+    summary: _lastData?.summary || {},
+    issue_count: 1,
+    total_grouped_issues: 1,
+    truncated: false,
+    issues: [{
+      source: item.source,
+      category: item.category,
+      message: item.message,
+      count: item.count,
+      first_seen: item.firstSeen,
+      last_seen: item.lastSeen,
+      sample: item.example
+    }]
+  };
 }
 
 function sectionVisible(source, type) {
@@ -138,73 +272,35 @@ function getVisibleBlocks(sections) {
   return visibleBlocks;
 }
 
-function renderSection(title, lines, source, type) {
-  if (!sectionVisible(source, type)) return "";
-  return `
-    <section class="ld-card ld-wide">
-      <h2>${esc(title)}</h2>
-      ${groupedLinesHtml(lines)}
-    </section>
-  `;
-}
-
-function renderTopIssues(sections) {
-  const grouped = groupLines(getVisibleBlocks(sections)).slice(0, 8);
-
-  return `
-    <section class="ld-card ld-wide">
-      <div class="ld-section-head">
-        <h2>Top Issues</h2>
-      </div>
-      ${grouped.length ? grouped.map(item => {
-        const cls = categoryClass(item.category);
-        const tag = esc(String(item.category || "plugin").toUpperCase());
-        const hotClass = item.count >= 5 ? " ld-hot" : "";
-        return `
-          <div class="ld-line${hotClass}">
-            <div class="ld-line-head">
-              <span class="ld-tag ${cls}">[${tag}]</span>
-              <span class="ld-count">×${esc(item.count)}</span>
-              ${item.lastSeen ? `<span class="ld-time">last: ${esc(item.lastSeen)}</span>` : ""}
-              ${item.count >= 5 ? `<span class="ld-hot-badge">HOT</span>` : ""}
-            </div>
-            <div class="ld-line-body">${esc(item.message)}</div>
-          </div>
-        `;
-      }).join("") : "<div class='ld-empty'>None</div>"}
-    </section>
-  `;
-}
-
-function buildAnalysePayload() {
+function buildScopedPayload(scope = "current-view", lines = null, label = "") {
   if (!_lastData) return null;
 
   const sections = _lastData.sections || {};
-  const visibleBlocks = getVisibleBlocks(sections);
-  const grouped = groupLines(visibleBlocks).slice(0, 5);
+  const baseLines = lines || getVisibleBlocks(sections);
+  const grouped = applyTextFilterToGrouped(groupLines(baseLines));
+
+  let selected;
+
+  if (scope === "top-issues") {
+    selected = grouped.slice(0, 5);
+  } else if (scope === "section-view") {
+    selected = grouped.slice(0, 6);
+  } else {
+    selected = grouped.slice(0, 8);
+  }
 
   return {
     source: "log-doctor",
-    scope: "current-view",
+    scope,
+    label,
     generated_at: new Date().toISOString(),
-    filters: {
-      sources: {
-        sapphire: !!document.querySelector("#ld-source-sapphire")?.checked,
-        kokoro: !!document.querySelector("#ld-source-kokoro")?.checked,
-        startup: !!document.querySelector("#ld-source-startup")?.checked,
-        story: !!document.querySelector("#ld-source-story")?.checked
-      },
-      types: {
-        errors: !!document.querySelector("#ld-type-errors")?.checked,
-        warnings: !!document.querySelector("#ld-type-warnings")?.checked,
-        plugin: !!document.querySelector("#ld-type-plugin")?.checked,
-        debug: !!document.querySelector("#ld-type-debug")?.checked
-      },
-      sort: currentSortMode()
-    },
+    filters: activeFilterState(),
     summary: _lastData.summary || {},
-    issue_count: grouped.length,
-    issues: grouped.map(item => ({
+    issue_count: selected.length,
+    total_grouped_issues: grouped.length,
+    truncated: grouped.length > selected.length,
+    issues: selected.map(item => ({
+      source: item.source,
       category: item.category,
       message: item.message,
       count: item.count,
@@ -215,29 +311,136 @@ function buildAnalysePayload() {
   };
 }
 
+function groupedLinesHtml(lines, context = {}) {
+  const grouped = applyTextFilterToGrouped(groupLines(lines));
+  if (!grouped.length) return "<div class='ld-empty'>None</div>";
+
+  return grouped.map(item => {
+    const cls = categoryClass(item.category);
+    const tag = esc(String(item.category || "plugin").toUpperCase());
+    const hotClass = item.count >= 5 ? " ld-hot" : "";
+    const issuePayload = buildIssuePayload(item, context.title || "Issue");
+
+    return `
+      <div class="ld-line${hotClass}">
+        <div class="ld-line-head">
+          <span class="ld-tag ${cls}">[${tag}]</span>
+          <span class="ld-source-pill">${esc(item.source)}</span>
+          <span class="ld-count">×${esc(item.count)}</span>
+          ${item.firstSeen ? `<span class="ld-time">first: ${esc(item.firstSeen)}</span>` : ""}
+          ${item.lastSeen ? `<span class="ld-time">last: ${esc(item.lastSeen)}</span>` : ""}
+          ${item.count >= 5 ? `<span class="ld-hot-badge">HOT</span>` : ""}
+          ${analyseButtonHtml(issuePayload, "Analyse this issue in chat", "ld-line-analyse")}
+        </div>
+        <div class="ld-line-body">${esc(item.message)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderSection(title, lines, source, type) {
+  if (!sectionVisible(source, type)) return "";
+
+  const filteredLines = applyTextFilterToLines(lines);
+  const panelPayload = buildScopedPayload("section-view", filteredLines, title);
+
+  return `
+    <section class="ld-card ld-wide">
+      <div class="ld-section-head">
+        <h2>${esc(title)}</h2>
+        ${analyseButtonHtml(panelPayload, "Analyse this section in chat")}
+      </div>
+      ${groupedLinesHtml(filteredLines, { title })}
+    </section>
+  `;
+}
+
+function renderTopIssues(sections) {
+  const visible = getVisibleBlocks(sections);
+  const grouped = applyTextFilterToGrouped(groupLines(visible)).slice(0, 8);
+  const panelPayload = buildScopedPayload("top-issues", visible, "Top Issues");
+
+  return `
+    <section class="ld-card ld-wide">
+      <div class="ld-section-head">
+        <h2>Top Issues</h2>
+        ${analyseButtonHtml(panelPayload, "Analyse top issues in chat")}
+      </div>
+      ${grouped.length ? grouped.map(item => {
+        const cls = categoryClass(item.category);
+        const tag = esc(String(item.category || "plugin").toUpperCase());
+        const hotClass = item.count >= 5 ? " ld-hot" : "";
+        const issuePayload = buildIssuePayload(item, "Top Issues");
+
+        return `
+          <div class="ld-line${hotClass}">
+            <div class="ld-line-head">
+              <span class="ld-tag ${cls}">[${tag}]</span>
+              <span class="ld-source-pill">${esc(item.source)}</span>
+              <span class="ld-count">×${esc(item.count)}</span>
+              ${item.lastSeen ? `<span class="ld-time">last: ${esc(item.lastSeen)}</span>` : ""}
+              ${item.count >= 5 ? `<span class="ld-hot-badge">HOT</span>` : ""}
+              ${analyseButtonHtml(issuePayload, "Analyse this issue in chat", "ld-line-analyse")}
+            </div>
+            <div class="ld-line-body">${esc(item.message)}</div>
+          </div>
+        `;
+      }).join("") : "<div class='ld-empty'>None</div>"}
+    </section>
+  `;
+}
+
+function buildAnalysePayload() {
+  return buildScopedPayload("current-view", null, "Main Analyse");
+}
+
 function showToastSafe(message, type = "info") {
   console.log(`[Log Doctor][${type}] ${message}`);
 
   const status = document.querySelector("#ld-status");
-  if (!status) return;
+  if (status) {
+    status.textContent = message;
+    status.dataset.state = type;
 
-  status.textContent = message;
-  status.dataset.state = type;
+    clearTimeout(showToastSafe._statusTimer);
+    showToastSafe._statusTimer = setTimeout(() => {
+      status.textContent = "Ready";
+      delete status.dataset.state;
+    }, 3500);
+  }
 
-  clearTimeout(showToastSafe._timer);
-  showToastSafe._timer = setTimeout(() => {
-    status.textContent = "Ready";
-    delete status.dataset.state;
-  }, 3500);
+  let container = document.querySelector("#ld-toast-container");
+
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "ld-toast-container";
+    document.body.appendChild(container);
+  }
+
+  clearTimeout(showToastSafe._toastTimer);
+  clearTimeout(showToastSafe._toastRemoveTimer);
+  container.innerHTML = "";
+
+  const toast = document.createElement("div");
+  toast.className = `ld-toast ld-toast-${type}`;
+  toast.textContent = message;
+
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.add("show");
+  });
+
+  showToastSafe._toastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+    showToastSafe._toastRemoveTimer = setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, 250);
+  }, 3000);
 }
 
 async function sendMessageToChat(text) {
-  console.log("[Log Doctor] sendMessageToChat called with:", text);
-
-  const doc =
-    window.top?.document ||
-    window.parent?.document ||
-    document;
+  const doc = window.top?.document || window.parent?.document || document;
 
   const input =
     doc.querySelector("textarea") ||
@@ -251,93 +454,114 @@ async function sendMessageToChat(text) {
   input.value = text;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.dispatchEvent(new Event("change", { bubbles: true }));
-  console.log("[Log Doctor] Chat input populated");
-
-  input.dispatchEvent(
-    new KeyboardEvent("keydown", {
-      key: "Enter",
-      code: "Enter",
-      which: 13,
-      keyCode: 13,
-      bubbles: true
-    })
-  );
-
-  input.dispatchEvent(
-    new KeyboardEvent("keypress", {
-      key: "Enter",
-      code: "Enter",
-      which: 13,
-      keyCode: 13,
-      bubbles: true
-    })
-  );
-
-  input.dispatchEvent(
-    new KeyboardEvent("keyup", {
-      key: "Enter",
-      code: "Enter",
-      which: 13,
-      keyCode: 13,
-      bubbles: true
-    })
-  );
-
-  console.log("[Log Doctor] Tried Enter key send");
-
-  if (input.form) {
-    input.form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    console.log("[Log Doctor] Submitted via form");
-    return;
-  }
 
   const btn =
     doc.querySelector("button[type='submit']") ||
     Array.from(doc.querySelectorAll("button")).find(
-      b => /send/i.test((b.textContent || "").trim()) || b.getAttribute("aria-label")?.match(/send/i)
+      b =>
+        /send/i.test((b.textContent || "").trim()) ||
+        b.getAttribute("aria-label")?.match(/send/i)
     );
 
   if (btn) {
     btn.click();
-    console.log("[Log Doctor] Submitted via button click");
     return;
   }
 
   throw new Error("Could not trigger chat send");
 }
 
+async function postAnalysePayload(payload) {
+  const res = await fetch("/api/plugin/log-doctor/analyse", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || ""
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
 async function analyseInChat() {
   const payload = buildAnalysePayload();
+  _lastAnalysePayload = payload;
+  rerenderFromCache();
 
   if (!payload) {
     showToastSafe("Nothing to analyse yet. Refresh the report first.", "warning");
     return;
   }
 
+  if (_analyseInFlight || isAnalyseCoolingDown()) {
+    showToastSafe("Analysis temporarily throttled. Try again in a few seconds.", "warning");
+    return;
+  }
+
+  setAnalyseUiBusy(true);
   showToastSafe("Sending Log Doctor view to chat…", "info");
 
   try {
-    const res = await fetch("/api/plugin/log-doctor/analyse", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content || ""
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
-    const prompt = String(data.prompt || "Analyse the current Log Doctor view");
+    const data = await postAnalysePayload(payload);
+    const prompt = String(data.prompt || "Run Log Doctor analysis");
 
     await sendMessageToChat(prompt);
 
     showToastSafe("Analysis sent. Check Chat for the response.", "success");
   } catch (err) {
-    showToastSafe(`Failed to send analysis: ${err.message}`, "error");
+    if (String(err.message || "").includes("429")) {
+      startAnalyseCooldown(8000);
+      showToastSafe("Rate limit hit. Cooling down for a few seconds.", "warning");
+    } else {
+      showToastSafe(`Failed to send analysis: ${err.message}`, "error");
+    }
+  } finally {
+    if (!isAnalyseCoolingDown()) {
+      setAnalyseUiBusy(false);
+    }
+  }
+}
+
+async function analyseCustomPayload(payload) {
+  _lastAnalysePayload = payload;
+  rerenderFromCache();
+
+  if (!payload) {
+    showToastSafe("Nothing to analyse for that scope.", "warning");
+    return;
+  }
+
+  if (_analyseInFlight || isAnalyseCoolingDown()) {
+    showToastSafe("Analysis temporarily throttled. Try again in a few seconds.", "warning");
+    return;
+  }
+
+  setAnalyseUiBusy(true);
+  showToastSafe("Sending selected scope to chat…", "info");
+
+  try {
+    const data = await postAnalysePayload(payload);
+    const prompt = String(data.prompt || "Run Log Doctor analysis");
+
+    await sendMessageToChat(prompt);
+
+    showToastSafe("Analysis sent. Check Chat for the response.", "success");
+  } catch (err) {
+    if (String(err.message || "").includes("429")) {
+      startAnalyseCooldown(8000);
+      showToastSafe("Rate limit hit. Cooling down for a few seconds.", "warning");
+    } else {
+      showToastSafe(`Failed to send analysis: ${err.message}`, "error");
+    }
+  } finally {
+    if (!isAnalyseCoolingDown()) {
+      setAnalyseUiBusy(false);
+    }
   }
 }
 
@@ -377,6 +601,8 @@ async function loadReport() {
 }
 
 function renderReport(data) {
+  _analysePayloads.clear();
+
   const output = document.querySelector("#ld-output");
   const summary = data.summary || {};
   const counts = data.counts_by_source || {};
@@ -424,14 +650,70 @@ function renderReport(data) {
         <section class="ld-card ld-wide">
           <h2>Debug</h2>
           ${kvHtml(debug)}
-        </section>
-      ` : ""}
+
+          <h3>Last Analyse Payload</h3>
+          ${
+            _lastAnalysePayload
+              ? `
+                <div class="ld-debug-payload">
+                  <pre>${esc(JSON.stringify(_lastAnalysePayload, null, 2))}</pre>
+                  <button id="ld-copy-payload" class="ld-clear-btn" type="button">Copy Payload</button>
+                </div>
+              `
+              : `<div class="ld-empty">No payload sent yet.</div>`
+      }
+    </section>
+  ` : ""}
     </div>
   `;
+
+  setAnalyseUiBusy(_analyseInFlight);
 }
 
 function rerenderFromCache() {
   if (_lastData) renderReport(_lastData);
+}
+
+function wireDynamicActions(container) {
+  container.addEventListener("click", (ev) => {
+    const copyBtn = ev.target.closest("#ld-copy-payload");
+    if (copyBtn) {
+      if (_lastAnalysePayload) {
+        navigator.clipboard.writeText(JSON.stringify(_lastAnalysePayload, null, 2));
+        showToastSafe("Payload copied to clipboard.", "success");
+     }
+  return;
+}
+    
+    const clearBtn = ev.target.closest("#ld-text-filter-clear");
+    if (clearBtn) {
+      const input = container.querySelector("#ld-text-filter");
+      if (input) {
+        input.value = "";
+        input.focus();
+        loadReport();
+      }
+      return;
+    }
+
+    const analyseBtn = ev.target.closest("[data-ld-analyse-id]");
+    if (analyseBtn) {
+      if (_analyseInFlight || isAnalyseCoolingDown()) {
+        showToastSafe("Analysis temporarily throttled. Try again in a few seconds.", "warning");
+        return;
+      }
+
+      const payloadId = analyseBtn.getAttribute("data-ld-analyse-id");
+      const payload = payloadId ? _analysePayloads.get(payloadId) : null;
+
+      if (!payload) {
+        showToastSafe("Could not read analysis payload.", "error");
+        return;
+      }
+
+      analyseCustomPayload(payload);
+    }
+  });
 }
 
 function injectStyles() {
@@ -440,9 +722,51 @@ function injectStyles() {
   const style = document.createElement("style");
   style.id = "log-doctor-app-styles";
   style.textContent = `
+    :root {
+      --ld-surface: var(--bg-secondary);
+      --ld-surface-elevated: var(--bg-tertiary, var(--bg-secondary));
+      --ld-surface-hover: var(--bg-hover, var(--ld-surface-elevated));
+      --ld-border-subtle: var(--border);
+      --ld-border-strong: var(--border-light, var(--border));
+      --ld-text-primary: var(--text);
+      --ld-text-secondary: var(--text-muted);
+
+      --ld-accent-primary: #22c55e;
+      --ld-accent-primary-hover: #16a34a;
+      --ld-accent-secondary: #3b82f6;
+      --ld-accent-secondary-hover: #2563eb;
+
+      --ld-status-error: #ff6b6b;
+      --ld-status-warning: #f0b84b;
+      --ld-status-info: #3b82f6;
+      --ld-status-success: #22c55e;
+      --ld-status-plugin: #58c472;
+
+      --ld-hot-surface: color-mix(in srgb, var(--ld-status-warning) 6%, var(--ld-surface));
+      --ld-hot-border: color-mix(in srgb, var(--ld-status-warning) 45%, var(--ld-border-subtle));
+      --ld-shadow-elevated: 0 6px 18px rgba(0, 0, 0, 0.16);
+    }
+
+   .ld-debug-payload {
+     margin-top: 10px;
+     display: flex;
+     flex-direction: column;
+     gap: 8px;
+}
+
+   .ld-debug-payload pre {
+     max-height: 260px;
+     overflow: auto;
+     padding: 10px;
+     border-radius: 6px;
+     background: var(--ld-surface-elevated);
+     border: 1px solid var(--ld-border-subtle);
+     font-size: 11px;
+}
+
     .ld-shell {
       padding: 16px;
-      color: var(--text);
+      color: var(--ld-text-primary);
       overflow-y: auto;
       max-height: 100%;
       box-sizing: border-box;
@@ -455,13 +779,12 @@ function injectStyles() {
 
     .ld-toolbar {
       display: flex;
-      gap: 12px;
+      gap: 14px;
       align-items: center;
       margin-bottom: 16px;
       flex-wrap: wrap;
     }
 
-    /* Align label + select properly (fixes Sort misalignment) */
     .ld-toolbar label {
       display: inline-flex;
       align-items: center;
@@ -471,57 +794,68 @@ function injectStyles() {
     .ld-toolbar input,
     .ld-toolbar button,
     .ld-toolbar select {
-      background: var(--bg-secondary);
-      color: var(--text);
-      border: 1px solid var(--border);
+      background: var(--ld-surface);
+      color: var(--ld-text-primary);
+      border: 1px solid var(--ld-border-subtle);
       border-radius: 6px;
       padding: 8px 10px;
     }
 
     .ld-toolbar button {
       cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease;
+      transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
     }
 
-    /* Button colours */
+    .ld-toolbar button:disabled,
+    .ld-icon-btn:disabled,
+    .ld-clear-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
     #ld-refresh {
-      background: #3b82f6;
-      border-color: #3b82f6;
+      background: var(--ld-accent-secondary);
+      border-color: var(--ld-accent-secondary);
       color: #fff;
     }
 
     #ld-refresh:hover {
-      background: #2563eb;
-      border-color: #2563eb;
+      background: var(--ld-accent-secondary-hover);
+      border-color: var(--ld-accent-secondary-hover);
     }
 
     #ld-analyse-chat {
-      background: #22c55e;
-      border-color: #22c55e;
+      background: var(--ld-accent-primary);
+      border-color: var(--ld-accent-primary);
       color: #fff;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--ld-accent-primary) 35%, transparent);
     }
 
     #ld-analyse-chat:hover {
-      background: #16a34a;
-      border-color: #16a34a;
+      background: var(--ld-accent-primary-hover);
+      border-color: var(--ld-accent-primary-hover);
     }
 
-    /* Status line as "toast" */
+    #ld-analyse-chat:disabled:hover {
+      background: var(--ld-accent-primary);
+      border-color: var(--ld-accent-primary);
+    }
+
     .ld-status {
-      color: var(--text-muted);
+      color: var(--ld-text-secondary);
       font-weight: 500;
     }
 
     .ld-status[data-state="success"] {
-      color: #22c55e;
+      color: var(--ld-status-success);
     }
 
     .ld-status[data-state="warning"] {
-      color: #f0b84b;
+      color: var(--ld-status-warning);
     }
 
     .ld-status[data-state="error"] {
-      color: #ff6b6b;
+      color: var(--ld-status-error);
     }
 
     .ld-filters {
@@ -530,8 +864,8 @@ function injectStyles() {
       flex-wrap: wrap;
       margin-bottom: 16px;
       padding: 10px 12px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
+      background: var(--ld-surface);
+      border: 1px solid var(--ld-border-subtle);
       border-radius: 8px;
     }
 
@@ -542,8 +876,13 @@ function injectStyles() {
       flex-wrap: wrap;
     }
 
+    .ld-filter-group + .ld-filter-group {
+      padding-left: 14px;
+      border-left: 1px solid var(--ld-border-strong);
+    }
+
     .ld-filter-group strong {
-      color: var(--text-muted);
+      color: var(--ld-text-secondary);
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.04em;
@@ -556,6 +895,48 @@ function injectStyles() {
       font-size: 13px;
     }
 
+    .ld-search-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-right: 6px;
+    }
+
+    .ld-search-wrap input {
+      min-width: 220px;
+    }
+
+    .ld-clear-btn,
+    .ld-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      height: 34px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid var(--ld-border-subtle);
+      background: transparent;
+      color: var(--ld-text-primary);
+      cursor: pointer;
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .ld-clear-btn:hover,
+    .ld-icon-btn:hover {
+      background: var(--ld-surface-hover);
+      border-color: var(--ld-border-strong);
+    }
+
+    .ld-icon-btn:active,
+    .ld-clear-btn:active {
+      transform: translateY(1px);
+    }
+
+    .ld-icon-btn.ld-busy {
+      font-size: 14px;
+    }
+
     .ld-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -563,16 +944,24 @@ function injectStyles() {
     }
 
     .ld-card {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
+      background: var(--ld-surface);
+      border: 1px solid var(--ld-border-subtle);
       border-radius: 8px;
       padding: 14px;
     }
 
-    .ld-wide { grid-column: 1 / -1; }
+    .ld-wide {
+      grid-column: 1 / -1;
+    }
 
-    .ld-card h2, .ld-card h3 {
+    .ld-card h2,
+    .ld-card h3 {
       margin-top: 0;
+      color: var(--ld-text-primary);
+    }
+
+    .ld-card h3 {
+      margin-bottom: 10px;
     }
 
     .ld-section-head {
@@ -587,21 +976,37 @@ function injectStyles() {
       grid-template-columns: 220px 1fr;
       gap: 8px;
       padding: 4px 0;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--ld-border-subtle);
     }
 
-    .ld-key { color: var(--text-muted); }
+    .ld-key {
+      color: var(--ld-text-secondary);
+    }
+
+    .ld-val {
+      color: var(--ld-text-primary);
+      font-weight: 600;
+    }
 
     .ld-line {
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      margin: 0 -4px;
+      border-bottom: 1px solid var(--ld-border-subtle);
+      border-radius: 8px;
       word-break: break-word;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;
+      transition: background 0.18s ease, border-color 0.18s ease;
+    }
+
+    .ld-line:hover {
+      background: var(--ld-surface-hover);
     }
 
     .ld-hot {
-      background: rgba(240, 184, 75, 0.06);
+      background: var(--ld-hot-surface);
+      border-left: 3px solid var(--ld-hot-border);
+      padding-left: 9px;
     }
 
     .ld-line-head {
@@ -621,30 +1026,43 @@ function injectStyles() {
     }
 
     .ld-tag-error {
-      color: #ff6b6b;
+      color: var(--ld-status-error);
     }
 
     .ld-tag-warning {
-      color: #f0b84b;
+      color: var(--ld-status-warning);
     }
 
     .ld-tag-plugin {
-      color: #58c472;
+      color: var(--ld-status-plugin);
+    }
+
+    .ld-source-pill {
+      color: var(--ld-text-secondary);
+      border: 1px solid var(--ld-border-strong);
+      background: color-mix(in srgb, var(--ld-surface-elevated) 85%, var(--ld-text-primary) 3%);
+      border-radius: 999px;
+      padding: 1px 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
     .ld-count {
-      color: var(--trim);
+      color: var(--ld-text-primary);
+      opacity: 0.85;
       font-weight: 700;
     }
 
     .ld-time {
-      color: var(--text-muted);
+      color: var(--ld-text-secondary);
       font-size: 11px;
     }
 
     .ld-hot-badge {
-      color: #f0b84b;
-      border: 1px solid #f0b84b;
+      color: var(--ld-status-warning);
+      border: 1px solid var(--ld-status-warning);
+      background: color-mix(in srgb, var(--ld-status-warning) 10%, transparent);
       border-radius: 999px;
       padding: 1px 6px;
       font-size: 10px;
@@ -653,12 +1071,74 @@ function injectStyles() {
       letter-spacing: 0.04em;
     }
 
-    .ld-empty { color: var(--text-muted); }
-    .ld-error { color: var(--error); }
+    .ld-empty {
+      color: var(--ld-text-secondary);
+    }
+
+    .ld-error {
+      color: var(--ld-status-error);
+    }
+
+    #ld-toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .ld-toast {
+      min-width: 240px;
+      max-width: 320px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--ld-border-strong);
+      background: var(--ld-surface-elevated);
+      color: var(--ld-text-primary);
+      font-size: 13px;
+      box-shadow: var(--ld-shadow-elevated);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.2s ease;
+      pointer-events: auto;
+    }
+
+    .ld-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .ld-toast-success {
+      border-color: var(--ld-status-success);
+    }
+
+    .ld-toast-warning {
+      border-color: var(--ld-status-warning);
+    }
+
+    .ld-toast-error {
+      border-color: var(--ld-status-error);
+    }
+
+    .ld-toast-info {
+      border-color: var(--ld-status-info);
+    }
 
     @media (max-width: 900px) {
-      .ld-grid { grid-template-columns: 1fr; }
-      .ld-kv { grid-template-columns: 1fr; }
+      .ld-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .ld-kv {
+        grid-template-columns: 1fr;
+      }
+
+      .ld-search-wrap input {
+        min-width: 160px;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -674,12 +1154,32 @@ export function render(container) {
         <label>Max lines <input id="ld-max-lines" type="number" value="5000" min="100" max="20000" step="100"></label>
         <button id="ld-refresh">Refresh</button>
         <button id="ld-analyse-chat">Analyse in Chat</button>
+
+        <label>Search
+          <span class="ld-search-wrap">
+            <input
+              id="ld-text-filter"
+              type="text"
+              placeholder="Search logs"
+              title="Comma-separated keywords"
+            >
+            <button
+              id="ld-text-filter-clear"
+              class="ld-clear-btn"
+              type="button"
+              title="Clear filter"
+              aria-label="Clear filter"
+            >✕</button>
+          </span>
+        </label>
+
         <label>Sort
           <select id="ld-sort-mode">
             <option value="frequency">Frequency</option>
             <option value="recency">Recency</option>
           </select>
         </label>
+
         <span id="ld-status" class="ld-status">Ready</span>
       </div>
 
@@ -722,10 +1222,23 @@ export function render(container) {
     container.querySelector(sel)?.addEventListener("change", rerenderFromCache);
   });
 
+  const textFilter = container.querySelector("#ld-text-filter");
+  textFilter?.addEventListener("input", rerenderFromCache);
+  textFilter?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      loadReport();
+    }
+  });
+
+  wireDynamicActions(container);
   loadReport();
 }
 
 export function cleanup() {
   _container = null;
   _lastData = null;
+  _analysePayloads.clear();
+  _analyseInFlight = false;
+  _analyseCooldownUntil = 0;
 }
