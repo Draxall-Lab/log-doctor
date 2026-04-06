@@ -17,6 +17,13 @@ Log parsing and payload generation work independently of the LLM.
 
 ---
 
+## 🔗 Related Projects
+
+- Sapphire Core (by ddxfish) – the platform this plugin is built for:
+  https://github.com/ddxfish/sapphire
+
+---
+
 ## 💡 Why Log Doctor?
 
 Most log tools either:
