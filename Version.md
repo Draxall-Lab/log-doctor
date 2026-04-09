@@ -1,58 +1,74 @@
-# Log Doctor v0.3.5
+# Log Doctor v0.3.6
 
 Release Type:
-Stability Milestone / Architecture Shift
+Feature Enhancement / UX Expansion
 
 ---
 
 ## 🚀 Highlights
 
-- Fully implemented **payload-driven analysis system**
-- Removed tool-based analysis to eliminate recursion risks
-- UI-scoped analysis across full view, sections, and individual issues
-- Debug panel with **last analyse payload + clipboard export**
-- Theme-safe UI using tokenised design system (`--ld-*`)
-- Verified compatibility with external theme plugins (e.g. Wolf’s Themes)
+- Introduced **time-based filtering** (Last 15m, 1h, 6h, 24h)
+- Enables focused analysis of recent log activity
+- Reduces noise in large log datasets
+- Preserves alignment between UI, payload, and analysis context
 
 ---
 
 ## 🧠 Architecture
 
-- Structured payload → hidden context → chat interpretation
-- Payload is the single source of truth
-- In-memory payload registry replaces DOM embedding
-- No exposed analysis tools
-
-This version marks the transition to a fully decoupled analysis model.
+- Added **time filter stage** before grouping and payload construction
+- Logs → Parser → Report → Time Filter → Filters → Render → Payload → Context → Chat
+- Time filter operates on raw lines with **anchor-based inheritance**
+- Untimestamped lines inherit visibility from preceding timestamped entries
 
 ---
 
-## 🛡️ Stability & Behaviour
+## 🎛️ UI & Behaviour
 
-- Stable under rapid repeated input (anti-hammering + cooldown handling)
-- No LLM crashes under sustained load
-- Consistent behaviour across all analysis scopes
-- Continues to function when no LLM provider is available
+- New **Time filter control** integrated into filter panel
+- Status now reflects active scope:
+  - `Refreshed • ⏱ Last 15 minutes`
+- Time filter behaves as an **AND constraint** across all other filters
+- Fully compatible with existing source/type/text filters
+
+---
+
+## 🔍 Analysis Integrity
+
+- Payload now includes `time_filter` metadata
+- Chat analysis reflects only the visible time-filtered dataset
+- Maintains strict alignment between:
+  - UI view
+  - Payload contents
+  - LLM interpretation
+
+---
+
+## 🛠️ Implementation Notes
+
+- Frontend-first implementation using existing timestamp extraction
+- Normalised log timestamp parsing for compatibility (e.g. Kokoro logs)
+- Designed for future backend-assisted filtering
 
 ---
 
 ## 🧪 Testing
 
-- Functional testing across all analysis scopes
-- Stress testing (rapid input, cooldown triggering)
-- UI validation across light, dark, and custom themes
+- Verified time filter behaviour across multiple log sources
+- Confirmed correct handling of:
+  - Timestamped entries
+  - Untimestamped lines (anchor inheritance)
+- UI validation for scope consistency and responsiveness
 
 ---
 
 ## ⚠️ Notes
 
-- Hidden context may occasionally surface under extreme rapid input
-- UI feedback prioritises clarity over animation
-
-These are edge-case behaviours and do not affect normal use.
+- Counts by Source currently reflect full dataset (not time-filtered)
+- Custom time ranges deferred to future version
 
 ---
 
 ## 📦 Status
 
-Production-ready for controlled release and wider community testing
+Ready for wider community testing with enhanced diagnostic precision

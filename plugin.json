@@ -2,13 +2,14 @@
   "name": "log-doctor",
   "display_name": "Log Doctor",
   "short_name": "Log Doctor",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Diagnoses Sapphire issues using logs and a structured diagnostics panel.",
   "author": "Draxall",
   "icon": "🩺",
   "capabilities": {
     "hooks": {
-      "pre_chat": "hooks/context.py"
+      "pre_chat": "hooks/context.py",
+      "prompt_inject": "hooks/context.py"
     },
     "routes": [
       {
