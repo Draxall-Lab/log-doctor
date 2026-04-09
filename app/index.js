@@ -674,26 +674,6 @@ discord+timeout-plugin"
         <div class="ld-filter-group ld-filter-time">
   <strong>Time</strong>
 
-  <div class="ld-time-controls">
-    <select id="ld-time-filter">
-      <option value="all">All time</option>
-      <option value="15m">Last 15 minutes</option>
-      <option value="1h">Last 1 hour</option>
-      <option value="6h">Last 6 hours</option>
-      <option value="24h">Last 24 hours</option>
-    </select>
-
-    <a
-      href="https://github.com/Draxall-Lab/log-doctor#readme"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="ld-help-btn"
-      title="Open help"
-      aria-label="Help"
-    >
-      ?
-    </a>
-  </div>
 </div>
 
         <div class="ld-filter-group">
