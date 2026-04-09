@@ -6,6 +6,7 @@
   "description": "Diagnoses Sapphire issues using logs and a structured diagnostics panel.",
   "author": "Draxall",
   "icon": "🩺",
+  "default_enabled": true,
   "capabilities": {
     "hooks": {
       "pre_chat": "hooks/context.py",
