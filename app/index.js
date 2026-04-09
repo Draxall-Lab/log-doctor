@@ -671,10 +671,7 @@ discord+timeout-plugin"
       </div>
 
       <div class="ld-filters">
-        <div class="ld-filter-group ld-filter-time">
-  <strong>Time</strong>
 
-</div>
 
         <div class="ld-filter-group">
           <strong>Type</strong>
