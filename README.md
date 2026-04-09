@@ -1,4 +1,4 @@
-### Log Doctor 🧠
+#  🧠 Log Doctor
 
 Log Doctor is a diagnostic dashboard and AI-assisted analysis tool for Sapphire.
 
