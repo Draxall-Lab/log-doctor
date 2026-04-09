@@ -58,6 +58,12 @@ def categorise(text: str):
         return "warning"
 
     if any(word in t for word in (
+        "debug",
+        "[debug]",
+    )):
+        return "debug"
+
+    if any(word in t for word in (
         "plugin",
         "tool",
         "loaded",
@@ -77,7 +83,6 @@ def categorise(text: str):
         return "plugin"
 
     return None
-
 
 def extract_matches(lines, source_name):
     matches = []
@@ -101,11 +106,13 @@ def extract_matches(lines, source_name):
 def split_by_category(matches):
     errors = [m for m in matches if m["category"] == "error"]
     warnings = [m for m in matches if m["category"] == "warning"]
+    debug = [m for m in matches if m["category"] == "debug"]
     plugins = [m for m in matches if m["category"] == "plugin"]
 
     return {
         "errors": errors,
         "warnings": warnings,
+        "debug": debug,
         "plugins": plugins,
     }
 
@@ -124,10 +131,10 @@ def analyse_logs(plugin_settings=None, max_lines=5000, max_results=15, raw_tail_
             "kokoro_matches": [],
             "startup_matches": [],
             "story_matches": [],
-            "sapphire_categories": {"errors": [], "warnings": [], "plugins": []},
-            "kokoro_categories": {"errors": [], "warnings": [], "plugins": []},
-            "startup_categories": {"errors": [], "warnings": [], "plugins": []},
-            "story_categories": {"errors": [], "warnings": [], "plugins": []},
+            "sapphire_categories": {"errors": [], "warnings": [], "debug": [], "plugins": []},
+            "kokoro_categories": {"errors": [], "warnings": [], "debug": [], "plugins": []},
+            "startup_categories": {"errors": [], "warnings": [], "debug": [], "plugins": []},
+            "story_categories": {"errors": [], "warnings": [], "debug": [], "plugins": []},
             "counts": {},
             "sapphire_counts": {},
             "kokoro_counts": {},
@@ -237,6 +244,7 @@ def analyse_logs(plugin_settings=None, max_lines=5000, max_results=15, raw_tail_
         summary = (
             f"{counts.get('error', 0)} error(s), "
             f"{counts.get('warning', 0)} warning(s), "
+            f"{counts.get('debug', 0)} debug line(s), "
             f"{counts.get('plugin', 0)} plugin line(s)"
         )
     else:
@@ -255,21 +263,25 @@ def analyse_logs(plugin_settings=None, max_lines=5000, max_results=15, raw_tail_
         "sapphire_categories": {
             "errors": sapphire_categories["errors"][-max_results:],
             "warnings": sapphire_categories["warnings"][-max_results:],
+            "debug": sapphire_categories["debug"][-max_results:],
             "plugins": sapphire_categories["plugins"][-max_results:],
         },
         "kokoro_categories": {
             "errors": kokoro_categories["errors"][-max_results:],
             "warnings": kokoro_categories["warnings"][-max_results:],
+            "debug": kokoro_categories["debug"][-max_results:],
             "plugins": kokoro_categories["plugins"][-max_results:],
         },
         "startup_categories": {
             "errors": startup_categories["errors"][-max_results:],
             "warnings": startup_categories["warnings"][-max_results:],
+            "debug": startup_categories["debug"][-max_results:],
             "plugins": startup_categories["plugins"][-max_results:],
         },
         "story_categories": {
             "errors": story_categories["errors"][-max_results:],
             "warnings": story_categories["warnings"][-max_results:],
+            "debug": story_categories["debug"][-max_results:],
             "plugins": story_categories["plugins"][-max_results:],
         },
         "counts": dict(counts),

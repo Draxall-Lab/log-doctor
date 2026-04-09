@@ -6,6 +6,7 @@ except ImportError:
     plugin_loader = None
 
 PENDING_KEY = "pending_analysis"
+ACTIVE_KEY = "pending_analysis_active"
 TTL_SECONDS = 300  # 5 minutes
 TRIGGER_PROMPT = "Analyse the current Log Doctor view"
 
@@ -40,13 +41,14 @@ def _is_expired(created_at: str, ttl_seconds: int = TTL_SECONDS) -> bool:
 
 
 def _cleanup_pending(state):
-    try:
-        state.delete(PENDING_KEY)
-    except Exception:
+    for key in (PENDING_KEY, ACTIVE_KEY):
         try:
-            state.save(PENDING_KEY, None)
+            state.delete(key)
         except Exception:
-            pass
+            try:
+                state.save(key, None)
+            except Exception:
+                pass
 
 
 def _format_filters(filters: dict) -> str:
@@ -68,6 +70,36 @@ def _format_filters(filters: dict) -> str:
     sort_mode = filters.get("sort")
     if sort_mode:
         parts.append(f"Sort: {sort_mode}")
+
+    text_filter = (filters.get("text_filter") or "").strip()
+    if text_filter:
+        parts.append(f"Text filter: {text_filter}")
+
+    text_terms = filters.get("text_terms") or {}
+
+    include_all = text_terms.get("include_all") or []
+    include_any = text_terms.get("include_any") or []
+    exclude = text_terms.get("exclude") or []
+
+    if include_all:
+        parts.append(f"Include (all): {', '.join(include_all)}")
+    if include_any:
+        parts.append(f"Include (any): {', '.join(include_any)}")
+    if exclude:
+        parts.append(f"Exclude: {', '.join(exclude)}")
+
+    time_filter = filters.get("time_filter") or {}
+    time_label = (time_filter.get("label") or "").strip()
+    time_mode = (time_filter.get("mode") or "").strip()
+    anchor_inheritance = bool(time_filter.get("anchor_inheritance"))
+
+    if time_label:
+        parts.append(f"Time filter: {time_label}")
+    elif time_mode:
+        parts.append(f"Time filter mode: {time_mode}")
+
+    if anchor_inheritance:
+        parts.append("Untimestamped lines inherit visibility from the preceding included timestamped line")
 
     return "\n".join(parts) if parts else "None"
 
@@ -116,7 +148,7 @@ def _build_context(payload: dict) -> str:
     issue_count = payload.get("issue_count", len(issues))
 
     return (
-        "Log Doctor context for this turn.\n\n"
+        "Log Doctor context for this turn only.\n\n"
         f"Source: {source}\n"
         f"Scope: {scope}\n"
         f"Generated at: {generated_at}\n\n"
@@ -127,16 +159,15 @@ def _build_context(payload: dict) -> str:
         f"Visible grouped issues sent: {issue_count}\n\n"
         "Issues:\n"
         f"{_format_issues(issues)}\n\n"
-        "Use this context to analyse the log state for this turn only. "
+        "Analyse only the supplied Log Doctor scope for this turn. "
+        "Focus on the listed grouped issues, likely causes, patterns, and next diagnostic steps. "
+        "Do not give a generic whole-log summary. "
         "Do not mention hidden payloads or internal transport details."
     )
 
 
 def pre_chat(event):
     text = (event.input or "").strip()
-    if text != TRIGGER_PROMPT:
-        return
-
     state = _get_state()
     if state is None:
         return
@@ -150,13 +181,35 @@ def pre_chat(event):
         _cleanup_pending(state)
         return
 
+    expected_prompt = (pending.get("prompt") or TRIGGER_PROMPT).strip()
+
+    if text != expected_prompt and not text.startswith(expected_prompt):
+        return
+
+    # Keep the visible user message clean
+    event.input = expected_prompt
+
+    # Mark this turn for prompt injection
+    state.save(ACTIVE_KEY, pending)
+
+
+def prompt_inject(event):
+    state = _get_state()
+    if state is None:
+        return
+
+    pending = state.get(ACTIVE_KEY)
+    if not pending or not isinstance(pending, dict):
+        return
+
+    created_at = pending.get("created_at", "")
+    if _is_expired(created_at):
+        _cleanup_pending(state)
+        return
+
     payload = pending.get("payload") or {}
     context_text = _build_context(payload)
 
-    event.input = (
-        f"{TRIGGER_PROMPT}\n\n"
-        "[Hidden Log Doctor context]\n"
-        f"{context_text}"
-    ).strip()
+    event.context_parts.append(context_text)
 
     _cleanup_pending(state)
