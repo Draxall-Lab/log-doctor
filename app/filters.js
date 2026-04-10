@@ -109,8 +109,9 @@ export function groupLines(lines) {
 
     let category = String(line.category || "").toLowerCase();
 
-    // Fallback reclassification when upstream has lumped things into "plugin"
-    if (!category || category === "plugin") {
+    // Fallback categorisation only when upstream category is missing.
+   // Backend category is the canonical source of truth and should not be overridden.
+    if (!category) {
       if (/\bERROR\b/i.test(rawText)) {
         category = "error";
       } else if (/\bWARNING\b/i.test(rawText)) {
