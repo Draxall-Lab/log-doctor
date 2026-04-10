@@ -209,9 +209,22 @@ export function applyTextFilterToLines(lines) {
 
 export function sectionVisible(source, type) {
   const sourceBox = document.querySelector(`#ld-source-${source}`);
-  const typeBox = document.querySelector(`#ld-type-${type}`);
+
+  // UI uses plural IDs (errors/warnings), internal uses singular (error/warning)
+  const typeKeyMap = {
+    error: "errors",
+    warning: "warnings",
+    debug: "debug",
+    plugin: "plugin"
+  };
+
+  const mappedType = typeKeyMap[type] || type;
+
+  const typeBox = document.querySelector(`#ld-type-${mappedType}`);
+
   const sourceOn = sourceBox ? sourceBox.checked : true;
   const typeOn = typeBox ? typeBox.checked : true;
+
   return sourceOn && typeOn;
 }
 

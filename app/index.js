@@ -191,6 +191,126 @@ function injectStyles() {
      gap: 8px;
    }
 
+   .ld-section-divider {
+     grid-column: 1 / -1;
+     margin: 2rem 0 1rem;
+     text-align: center;
+     position: relative;
+  }
+
+   .ld-grid > .ld-section-divider:first-child {
+     margin-top: 8px;
+  }
+
+   .ld-counts-grid {
+     display: grid;
+     grid-template-columns: repeat(2, minmax(0, 1fr));
+     gap: 0; /* important: we’ll control spacing via padding */
+     margin-top: 12px;
+     position: relative;
+  }
+
+  /* Vertical divider (middle) */
+   .ld-counts-grid::before {
+     content: "";
+     position: absolute;
+     top: 0;
+     bottom: 0;
+     left: 50%;
+     width: 1px;
+     background: var(--ld-border);
+     opacity: 0.6;
+   }
+
+  /* Horizontal divider (middle) */
+   .ld-counts-grid::after {
+     content: "";
+     position: absolute;
+     left: 0;
+     right: 0;
+     top: 50%;
+     height: 1px;
+     background: var(--ld-border);
+     opacity: 0.6;
+   }
+
+   .ld-subcard {
+     border: none; /* remove inner borders so grid lines are clean */
+     padding: 16px;
+     background: transparent;
+   }
+
+   .ld-subcard h3 {
+     margin-top: 0;
+  }
+
+   @media (max-width: 900px) {
+     .ld-counts-grid {
+       grid-template-columns: 1fr;
+     }
+  }
+
+   .ld-counts-grid > * {
+     padding: 16px;
+  }
+
+   /* Left column spacing */
+   .ld-counts-grid > *:nth-child(odd) {
+     padding-right: 20px;
+  }
+
+   /* Right column spacing */
+   .ld-counts-grid > *:nth-child(even) {
+     padding-left: 20px;
+  }
+
+   /* Top row spacing */
+   .ld-counts-grid > *:nth-child(-n+2) {
+     padding-bottom: 20px;
+  }
+
+   /* Bottom row spacing */
+   .ld-counts-grid > *:nth-child(n+3) {
+     padding-top: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .ld-counts-grid {
+      grid-template-columns: 1fr;
+  }
+
+   .ld-counts-grid::before,
+   .ld-counts-grid::after {
+     display: none;
+  }
+
+   .ld-counts-grid > * {
+     padding: 12px 0;
+  }
+ }
+
+   .ld-section-divider::before {
+     content: "";
+     position: absolute;
+     top: 50%;
+     left: 0;
+     right: 0;
+     height: 1px;
+     background: rgba(255,255,255,0.08);
+     z-index: 0;
+}
+
+  .ld-section-divider h2 {
+     position: relative;
+     display: inline-block;
+     padding: 0 12px;
+     background: var(--ld-bg, #0f1115);
+     font-size: 0.8rem;
+     letter-spacing: 0.1em;
+     text-transform: uppercase;
+     opacity: 0.7;
+}
+
    .ld-help-btn {
      display: inline-flex;
      align-items: center;
@@ -683,6 +803,10 @@ discord+timeout-plugin"
 
         <div class="ld-filter-group">
         <strong>View</strong>
+        <label><input type="checkbox" id="ld-source-sapphire" checked> Sapphire</label>
+        <label><input type="checkbox" id="ld-source-kokoro" checked> Kokoro</label>
+        <label><input type="checkbox" id="ld-source-startup" checked> Startup</label>
+        <label><input type="checkbox" id="ld-source-story" checked> Story</label>
         <label><input id="ld-toggle-diagnostics" type="checkbox" checked> Diagnostics</label>
         </div>
 

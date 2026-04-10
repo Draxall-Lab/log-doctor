@@ -47,7 +47,17 @@ Source and type filtering
 Text search (supports OR, AND, NOT logic)
 Hot issue highlighting
 
-⏱️ Time-Based Filtering (v0.3.6)
+## 🔍 Unified Filtering Model (v0.3.7)
+
+All UI elements operate from a single filtered dataset.
+
+This means:
+
+What you see is what gets analysed.
+
+Counts, sections, and analysis are always aligned with the current view.
+
+⏱️ Time-Based Filtering (v0.3.7)
 Filter logs by:
 Last 15 minutes
 Last 1 hour
@@ -58,13 +68,14 @@ Enables focused “what just happened?” workflows
 
 Behaviour:
 
-Time filter is applied before grouping and analysis
+Time filter is applied before all aggregation and rendering
+Counts, sections, and analysis all reflect the same filtered dataset
 Acts as an AND constraint with other filters
 Untimestamped lines are included using anchor-based inheritance
 (they follow the last valid timestamped entry)
 
 ## 🧠 Chat-Based Analysis
-Analyse current filtered view
+Analyse Current View → entire visible dataset
 Analyse Top Issues
 Analyse individual sections
 Analyse single issues
@@ -150,7 +161,7 @@ Issue Analyse → single grouped issue
 
 All analysis reflects exactly what is visible in the UI.
 
-##🔹 No AI? No Problem
+## 🔹 No AI? No Problem
 
 If no LLM provider is configured:
 
@@ -159,7 +170,7 @@ Copy the payload
 Paste into another AI tool
 
 ## ⚠️ Known Behaviour
-Counts by Source currently reflect full dataset (not time-filtered)
+Counts by Source reflect the current filtered dataset (including time filter)
 Hidden context may occasionally surface under extreme rapid input
 Busy indicator may briefly flicker during very fast operations
 
@@ -167,7 +178,8 @@ These are edge-case behaviours and do not affect normal operation.
 
 ## 🧭 Version
 
-Current version: v0.3.6
+Current version: v0.3.7
+This version introduces a unified filtering model where all counts, sections, and analysis reflect the same filtered dataset.
 
 ## 🧪 Status
 Functional testing: ✅

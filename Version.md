@@ -1,4 +1,4 @@
-# Log Doctor v0.3.6
+# Log Doctor v0.3.7
 
 Release Type:
 Feature Enhancement / UX Expansion
@@ -8,15 +8,16 @@ Feature Enhancement / UX Expansion
 ## 🚀 Highlights
 
 - Introduced **time-based filtering** (Last 15m, 1h, 6h, 24h)
+- Implemented **unified filtering model** across UI, counts, and analysis
+- Ensures all views operate from a **single, consistent dataset**
 - Enables focused analysis of recent log activity
 - Reduces noise in large log datasets
-- Preserves alignment between UI, payload, and analysis context
 
 ---
 
 ## 🧠 Architecture
 
-- Added **time filter stage** before grouping and payload construction
+- Time filter is applied **before all aggregation and rendering**
 - Logs → Parser → Report → Time Filter → Filters → Render → Payload → Context → Chat
 - Time filter operates on raw lines with **anchor-based inheritance**
 - Untimestamped lines inherit visibility from preceding timestamped entries
@@ -26,8 +27,7 @@ Feature Enhancement / UX Expansion
 ## 🎛️ UI & Behaviour
 
 - New **Time filter control** integrated into filter panel
-- Status now reflects active scope:
-  - `Refreshed • ⏱ Last 15 minutes`
+- Status reflects active time scope (e.g. `Refreshed • ⏱ Last 15 minutes`)
 - Time filter behaves as an **AND constraint** across all other filters
 - Fully compatible with existing source/type/text filters
 
@@ -41,6 +41,7 @@ Feature Enhancement / UX Expansion
   - UI view
   - Payload contents
   - LLM interpretation
+- What you see is what gets analysed
 
 ---
 
@@ -54,7 +55,7 @@ Feature Enhancement / UX Expansion
 
 ## 🧪 Testing
 
-- Verified time filter behaviour across multiple log sources
+- Verified consistency between counts, sections, and analysis under time filtering
 - Confirmed correct handling of:
   - Timestamped entries
   - Untimestamped lines (anchor inheritance)
@@ -64,8 +65,8 @@ Feature Enhancement / UX Expansion
 
 ## ⚠️ Notes
 
-- Counts by Source currently reflect full dataset (not time-filtered)
-- Custom time ranges deferred to future version
+- All counts, sections, and analysis now reflect the active time-filtered dataset
+- Custom time ranges deferred to a future version
 
 ---
 
