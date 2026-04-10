@@ -31,56 +31,64 @@ def read_tail(path: Path, max_lines: int):
         return []
 
 
+import re
+
+_LEVEL_RE = re.compile(r"\s-\s(?P<level>ERROR|WARNING|DEBUG|INFO)\s-\s", re.IGNORECASE)
+
 def categorise(text: str):
+    """
+    Canonical log categorisation for Log Doctor.
+
+    Priority:
+    1. Trust explicit log level in the line, if present.
+    2. If no explicit level exists, use conservative fallback heuristics.
+    3. Return None if nothing reliable is found.
+
+    Current 4-bucket model:
+    - ERROR   -> error
+    - WARNING -> warning
+    - DEBUG   -> debug
+    - INFO    -> plugin
+    """
+
+    if not text:
+        return None
+
+    match = _LEVEL_RE.search(text)
+    if match:
+        level = match.group("level").upper()
+
+        if level == "ERROR":
+            return "error"
+        if level == "WARNING":
+            return "warning"
+        if level == "DEBUG":
+            return "debug"
+        if level == "INFO":
+            return "plugin"
+
+    # Conservative fallback only for lines without a standard log level.
     t = text.lower()
 
     if any(word in t for word in (
-        "error",
-        "exception",
         "traceback",
-        "failed",
-        "unauthor",
-        "forbidden",
-        "timeout",
-        "refused",
-        "invalid",
-        "401",
-        "403",
-        "404",
-        "500",
+        "exception",
+        "fatal",
+        "unhandled exception",
     )):
         return "error"
 
     if any(word in t for word in (
-        "warning",
-        "warn",
-    )):
-        return "warning"
-
-    if any(word in t for word in (
-        "debug",
         "[debug]",
+        " debug ",
     )):
         return "debug"
 
     if any(word in t for word in (
-        "plugin",
-        "tool",
-        "loaded",
-        "load",
-        "reload",
-        "registered",
-        "register",
-        "enabled",
-        "disabled",
-        "route",
-        "hook",
-        "daemon",
-        "[plugins]",
-        "req:",
-        "story",
+        "warning",
+        " warn ",
     )):
-        return "plugin"
+        return "warning"
 
     return None
 
