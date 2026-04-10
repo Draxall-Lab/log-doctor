@@ -36,7 +36,7 @@ def handle_report(body=None, settings=None, **path_params):
 
     payload = {
         "report_type": "log_doctor",
-        "format_version": 3,
+        "format_version": 4,
         "summary": {
             "sapphire_root": result.get("resolved_root", "unknown"),
             "log_directory": result.get("log_dir", "unknown"),
@@ -67,6 +67,27 @@ def handle_report(body=None, settings=None, **path_params):
                 "debug": result.get("story_counts", {}).get("debug", 0),
                 "plugin_lines": result.get("story_counts", {}).get("plugin", 0),
             }
+        },
+        "raw_sections": {
+            "sapphire_errors": result.get("sapphire_categories", {}).get("errors", []),
+            "sapphire_warnings": result.get("sapphire_categories", {}).get("warnings", []),
+            "sapphire_debug": result.get("sapphire_categories", {}).get("debug", []),
+            "sapphire_plugins": result.get("sapphire_categories", {}).get("plugins", []),
+
+            "kokoro_errors": result.get("kokoro_categories", {}).get("errors", []),
+            "kokoro_warnings": result.get("kokoro_categories", {}).get("warnings", []),
+            "kokoro_debug": result.get("kokoro_categories", {}).get("debug", []),
+            "kokoro_plugins": result.get("kokoro_categories", {}).get("plugins", []),
+
+            "startup_errors": result.get("startup_categories", {}).get("errors", []),
+            "startup_warnings": result.get("startup_categories", {}).get("warnings", []),
+            "startup_debug": result.get("startup_categories", {}).get("debug", []),
+            "startup_plugins": result.get("startup_categories", {}).get("plugins", []),
+
+            "story_errors": result.get("story_categories", {}).get("errors", []),
+            "story_warnings": result.get("story_categories", {}).get("warnings", []),
+            "story_debug": result.get("story_categories", {}).get("debug", []),
+            "story_plugins": result.get("story_categories", {}).get("plugins", []),
         },
         "sections": {
             "sapphire_errors": _trim_matches(result.get("sapphire_categories", {}).get("errors", []), 12),
