@@ -24,7 +24,9 @@ import {
   currentTextFilter,
   currentTimeFilter,
   timeFilterLabel,
-  parseFilterTerms
+  parseFilterTerms,
+  setTimeFilter,
+  syncTimeFilterControl,
 } from "./filters.js";
 
 async function reloadAndRender() {
@@ -35,6 +37,61 @@ async function reloadAndRender() {
 
   updateScopeStatus("Refreshed");
   return data;
+}
+
+function normaliseMaxLinesInput(container) {
+  const input = container.querySelector("#ld-max-lines");
+  if (!input) return 5000;
+
+  const raw = String(input.value || "").trim();
+
+  if (!raw) {
+    input.value = "5000";
+    return 5000;
+  }
+
+  let value = Number(raw);
+
+  if (!Number.isFinite(value)) {
+    value = 5000;
+  }
+
+  value = Math.max(100, Math.min(20000, Math.round(value)));
+  input.value = String(value);
+  return value;
+}
+
+function injectFlatpickrCss() {
+  if (document.getElementById("log-doctor-flatpickr-css")) return;
+
+  const link = document.createElement("link");
+  link.id = "log-doctor-flatpickr-css";
+  link.rel = "stylesheet";
+  link.href = "/plugin-web/log-doctor/app/vendor/flatpickr/flatpickr.min.css";
+  document.head.appendChild(link);
+}
+
+function injectFlatpickrJs() {
+  return new Promise((resolve, reject) => {
+    if (window.flatpickr) {
+      resolve(window.flatpickr);
+      return;
+    }
+
+    const existing = document.getElementById("log-doctor-flatpickr-js");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.flatpickr), { once: true });
+      existing.addEventListener("error", reject, { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "log-doctor-flatpickr-js";
+    script.src = "/plugin-web/log-doctor/app/vendor/flatpickr/flatpickr.min.js";
+    script.onload = () => resolve(window.flatpickr);
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
 }
 
 function rerenderCurrentView() {
@@ -185,17 +242,88 @@ function injectStyles() {
      font-size: 11px;
    }
 
-   .ld-time-controls {
-     display: flex;
-     align-items: center;
-     gap: 8px;
-   }
+  .ld-time-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 
-   .ld-section-divider {
-     grid-column: 1 / -1;
-     margin: 2rem 0 1rem;
-     text-align: center;
-     position: relative;
+  #ld-time-custom {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  #ld-time-custom label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    color: var(--ld-text, #ddd);
+  }
+
+  #ld-time-from,
+  #ld-time-to {
+    min-width: 170px;
+  }
+
+  #ld-time-apply {
+    white-space: nowrap;
+  }
+
+  #ld-time-filter,
+  #ld-time-from,
+  #ld-time-to,
+  #ld-time-apply {
+    background: var(--ld-surface);
+    color: var(--ld-text-primary);
+    border: 1px solid var(--ld-border-subtle);
+    border-radius: 6px;
+    box-sizing: border-box;
+    min-height: 34px;
+}
+
+  #ld-time-filter,
+  #ld-time-from,
+  #ld-time-to {
+    padding: 8px 10px;
+}
+
+  #ld-time-filter {
+    min-width: 150px;
+}
+
+  #ld-time-from,
+  #ld-time-to {
+    min-width: 170px;
+}
+
+  #ld-time-apply {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+  #ld-time-apply:hover {
+    background: var(--ld-surface-hover);
+    border-color: var(--ld-border-strong);
+}
+
+  #ld-time-filter:focus,
+  #ld-time-from:focus,
+  #ld-time-to:focus,
+  #ld-time-apply:focus {
+    outline: none;
+    border-color: var(--ld-border-strong);
+}
+
+  .ld-section-divider {
+    grid-column: 1 / -1;
+    margin: 2rem 0 1rem;
+    text-align: center;
+    position: relative;
   }
 
    .ld-grid > .ld-section-divider:first-child {
@@ -296,19 +424,24 @@ function injectStyles() {
      left: 0;
      right: 0;
      height: 1px;
-     background: rgba(255,255,255,0.08);
+     background: var(--ld-border-subtle);
+     opacity: 0.9;
      z-index: 0;
 }
 
-  .ld-section-divider h2 {
+   .ld-section-divider h2 {
      position: relative;
+     z-index: 1;
      display: inline-block;
+     margin: 0;
      padding: 0 12px;
-     background: var(--ld-bg, #0f1115);
-     font-size: 0.8rem;
+     background: var(--ld-surface);
+     color: var(--ld-text-secondary);
+     font-size: 0.78rem;
+     font-weight: 700;
      letter-spacing: 0.1em;
      text-transform: uppercase;
-     opacity: 0.7;
+     line-height: 1.2;
 }
 
    .ld-help-btn {
@@ -735,6 +868,9 @@ export async function render(container) {
   setContainer(container);
   injectStyles();
 
+  injectFlatpickrCss();
+  await injectFlatpickrJs();
+
   container.innerHTML = `
     <div class="ld-shell">
       <div class="ld-toolbar">
@@ -791,8 +927,6 @@ discord+timeout-plugin"
       </div>
 
       <div class="ld-filters">
-
-
         <div class="ld-filter-group">
           <strong>Type</strong>
           <label><input id="ld-type-errors" type="checkbox" checked> Errors</label>
@@ -802,12 +936,12 @@ discord+timeout-plugin"
         </div>
 
         <div class="ld-filter-group">
-        <strong>View</strong>
-        <label><input type="checkbox" id="ld-source-sapphire" checked> Sapphire</label>
-        <label><input type="checkbox" id="ld-source-kokoro" checked> Kokoro</label>
-        <label><input type="checkbox" id="ld-source-startup" checked> Startup</label>
-        <label><input type="checkbox" id="ld-source-story" checked> Story</label>
-        <label><input id="ld-toggle-diagnostics" type="checkbox" checked> Diagnostics</label>
+          <strong>View</strong>
+          <label><input type="checkbox" id="ld-source-sapphire" checked> Sapphire</label>
+          <label><input type="checkbox" id="ld-source-kokoro" checked> Kokoro</label>
+          <label><input type="checkbox" id="ld-source-startup" checked> Startup</label>
+          <label><input type="checkbox" id="ld-source-story" checked> Story</label>
+          <label><input id="ld-toggle-diagnostics" type="checkbox" checked> Diagnostics</label>
         </div>
 
         <div class="ld-filter-group ld-filter-time">
@@ -820,27 +954,34 @@ discord+timeout-plugin"
               <option value="1h">Last 1 hour</option>
               <option value="6h">Last 6 hours</option>
               <option value="24h">Last 24 hours</option>
+              <option value="custom">Custom range</option>
             </select>
 
-            <a
-             href="https://github.com/Draxall-Lab/log-doctor#readme"
-             target="_blank"
-             rel="noopener noreferrer"
-             class="ld-help-btn"
-             title="Open help"
-             aria-label="Help"
-        >
-             ?
-           </a>
-         </div>
-       </div>
+          <div id="ld-time-custom" style="display: none;">
+            <label>From <input id="ld-time-from" placeholder="From date & time"></label>
+            <label>To <input id="ld-time-to" placeholder="To date & time"></label>
+            <button id="ld-time-apply" type="button">Apply</button>
+          </div>
 
+            <a
+              href="https://github.com/Draxall-Lab/log-doctor#readme"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ld-help-btn"
+              title="Open help"
+              aria-label="Help"
+            >
+              ?
+            </a>
+          </div>
+        </div>
       </div>
-      
+
       <div id="ld-output"></div>
     </div>
   `;
-    function updateScopeStatus(prefix = "Refreshed") {
+
+  function updateScopeStatus(prefix = "Refreshed") {
     const statusEl = container.querySelector("#ld-status");
     if (!statusEl) return;
 
@@ -848,7 +989,103 @@ discord+timeout-plugin"
     statusEl.textContent = `${prefix} • ⏱ ${label}`;
   }
 
-  container.querySelector("#ld-refresh")?.addEventListener("click", reloadAndRender);
+  syncTimeFilterControl(container);
+
+  const timeSelect = container.querySelector("#ld-time-filter");
+  const customPanel = container.querySelector("#ld-time-custom");
+
+  if (customPanel) {
+    customPanel.style.display = currentTimeFilter()?.mode === "absolute" ? "block" : "none";
+  }
+
+ requestAnimationFrame(() => {
+  const fromEl = container.querySelector("#ld-time-from");
+  const toEl = container.querySelector("#ld-time-to");
+
+  if (fromEl && !fromEl._flatpickr) {
+    flatpickr(fromEl, {
+      enableTime: true,
+      dateFormat: "Y-m-d H:i",
+      time_24hr: true
+    });
+  }
+
+  if (toEl && !toEl._flatpickr) {
+    flatpickr(toEl, {
+      enableTime: true,
+      dateFormat: "Y-m-d H:i",
+      time_24hr: true,
+      defaultDate: new Date()
+    });
+  }
+});
+
+  timeSelect?.addEventListener("change", () => {
+    const val = timeSelect.value;
+
+    if (val === "custom") {
+      if (customPanel) customPanel.style.display = "block";
+
+    const toEl = container.querySelector("#ld-time-to");
+    const toPicker = toEl?._flatpickr;
+
+    if (toPicker && !wasCustom) {
+      toPicker.setDate(new Date(), false);
+    }
+
+    return;
+  }
+
+  if (customPanel) customPanel.style.display = "none";
+
+  setTimeFilter({
+  mode: "relative",
+  preset: val
+});
+
+syncTimeFilterControl(container);
+rerenderCurrentView();
+updateScopeStatus("Refreshed");
+});
+
+  const applyBtn = container.querySelector("#ld-time-apply");
+
+  applyBtn?.addEventListener("click", () => {
+    const fromEl = container.querySelector("#ld-time-from");
+    const toEl = container.querySelector("#ld-time-to");
+
+    const fromPicker = fromEl?._flatpickr;
+    const toPicker = toEl?._flatpickr;
+
+    const from = fromPicker?.selectedDates?.[0];
+    const to = toPicker?.selectedDates?.[0];
+
+    if (!from || !to) {
+      showToastSafe("Please select both a start and end date/time", "warning");
+      return;
+    }
+
+    if (from > to) {
+      showToastSafe("Start date/time must be before end date/time", "warning");
+      return;
+    }
+
+    setTimeFilter({
+      mode: "absolute",
+      from: from.toISOString(),
+      to: to.toISOString()
+    });
+
+  syncTimeFilterControl(container);
+  rerenderCurrentView();
+  updateScopeStatus("Refreshed");
+});
+
+  container.querySelector("#ld-refresh")?.addEventListener("click", async () => {
+  normaliseMaxLinesInput(container);
+  await reloadAndRender();
+});
+
   container.querySelector("#ld-analyse-chat")?.addEventListener("click", analyseInChat);
 
   [
@@ -861,14 +1098,45 @@ discord+timeout-plugin"
     "#ld-type-plugin",
     "#ld-type-debug",
     "#ld-toggle-diagnostics",
-    "#ld-sort-mode",
-    "#ld-time-filter"
+    "#ld-sort-mode"
   ].forEach(sel => {
     container.querySelector(sel)?.addEventListener("change", () => {
       rerenderCurrentView();
       updateScopeStatus("Refreshed");
     });
   });
+
+const maxLinesInput = container.querySelector("#ld-max-lines");
+let maxLinesTimer;
+
+maxLinesInput?.addEventListener("input", () => {
+  clearTimeout(maxLinesTimer);
+
+  maxLinesTimer = setTimeout(async () => {
+    const raw = String(maxLinesInput.value || "").trim();
+    const value = Number(raw);
+
+    if (!raw) return;
+    if (!Number.isFinite(value)) return;
+    if (value < 100 || value > 20000) return;
+
+    await reloadAndRender();
+  }, 350);
+});
+
+maxLinesInput?.addEventListener("keydown", async (ev) => {
+  if (ev.key === "Enter") {
+    ev.preventDefault();
+    clearTimeout(maxLinesTimer);
+    normaliseMaxLinesInput(container);
+    await reloadAndRender();
+  }
+});
+
+maxLinesInput?.addEventListener("blur", () => {
+  clearTimeout(maxLinesTimer);
+  normaliseMaxLinesInput(container);
+});
 
   const textFilter = container.querySelector("#ld-text-filter");
   const clearTextFilter = container.querySelector("#ld-text-filter-clear");
