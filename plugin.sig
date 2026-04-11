@@ -1,6 +1,6 @@
 {
   "plugin": "log-doctor",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "files": {
     "app/api.js": "sha256:3f8315d4f31c220d0fc3101aeb8c0df10ff1bb0ef07497133fe19e95e62bdc64",
     "app/debug.js": "sha256:9d867dc8565f71d8903b75ffd2f46c7e82364fc5709802e895b1f1a0840247c1",
@@ -16,12 +16,12 @@
     "core/log_parser.py": "sha256:bb0e81f262d2de16935b69305caee33980ac8118359f2f92c2346c427cef55b5",
     "core/path_utils.py": "sha256:4fe9eacb86e9b255f136557d9bc84ea02df2dd94231d6d2d6a29ff56441038f6",
     "hooks/context.py": "sha256:5144c1df675bbfca641e858681366745a5f3c1d9ec56ba6c17169a302612fbb0",
-    "plugin.json": "sha256:10ff4d85a1a9349017250b52c4fa43b07ba0047f2ea1a87211ee585828597da5",
-    "README.md": "sha256:4b15958d41539bea16d70e95bf574fd478079b96cc6c033014e008cc6222020f",
+    "plugin.json": "sha256:dec6fc8b06f7209a0fa3dad22553715c0e3312b1ab5fd15114d3749f62cadd1d",
+    "README.md": "sha256:a15e16ad46bbe597ffd092234c38f8bab894f54f923290eb422640652d58e4c1",
     "routes/analyse.py": "sha256:8c46a7803ed15c127c68b2f9a6ae056f9a8fb8c9d638821ec6483365f49a6a38",
     "routes/report.py": "sha256:026807ce1511e018a91aafdcb662d602e0b0e5bdc57278cbf88047c1eab68eaa",
     "tools/log_doctor.py": "sha256:cf5f4110c7e40dd1876fefce2c164ed3d038f0cf8e6de45910dad0f9655e05e1",
-    "Version.md": "sha256:3d4284f66873e119a35728044a7b68c67bb468e6ede59007367fdc979bd573e6"
+    "Version.md": "sha256:50047452a81c54dc49e7c3588e98f3a0b2f047683556e3a5935c32e16d622064"
   },
-  "signature": "GJQhl1GlMeTLWZD3JajCd0qGXFXCxkSgtfVZ6wiiXgITFpIZD82uPzLh62W2U+cOpE5esXRfj15cmkO56wN9AQ=="
+  "signature": "QYg5DP8NOAejYRWLcHCdLznbMxS+t0uW6zW525KcY03h4QY+RFynFibOuDpwm2rQkPitAVG84w0vhAkIpyeGDw=="
 }

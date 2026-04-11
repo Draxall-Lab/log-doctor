@@ -1,26 +1,31 @@
-# Log Doctor v0.3.7
+# Log Doctor v0.3.8
 
 Release Type:
-Feature Enhancement / UX Expansion
+Stability Enhancement / Data Integrity / Feature Expansion
 
 ---
 
 ## 🚀 Highlights
 
-- Introduced **time-based filtering** (Last 15m, 1h, 6h, 24h)
-- Implemented **unified filtering model** across UI, counts, and analysis
-- Ensures all views operate from a **single, consistent dataset**
-- Enables focused analysis of recent log activity
-- Reduces noise in large log datasets
+- Fixed time-filter leak in payload construction
+- Implemented strict scoped summary alignment
+- Introduced custom datetime range filtering
+- Achieved full consistency between:
+   - UI view
+   - Payload contents
+   - Analysis results
 
 ---
 
 ## 🧠 Architecture
 
-- Time filter is applied **before all aggregation and rendering**
+- Enforced hard time filtering at payload construction stage
+- Payload now built from the same filtered dataset used for rendering
 - Logs → Parser → Report → Time Filter → Filters → Render → Payload → Context → Chat
-- Time filter operates on raw lines with **anchor-based inheritance**
-- Untimestamped lines inherit visibility from preceding timestamped entries
+- Eliminated divergence between:
+   - visible log lines
+   - grouped issues
+   - payload contents
 
 ---
 
@@ -35,41 +40,96 @@ Feature Enhancement / UX Expansion
 
 ## 🔍 Analysis Integrity
 
-- Payload now includes `time_filter` metadata
-- Chat analysis reflects only the visible time-filtered dataset
-- Maintains strict alignment between:
-  - UI view
-  - Payload contents
-  - LLM interpretation
-- What you see is what gets analysed
+- Payloads now strictly respect:
+   - time filter
+   - source/type filters
+   - text filters
+- Fixed issue where out-of-scope log lines could appear in analysis
+- Summary rebuilt from fully visible filtered dataset
+- Alignment guaranteed across:
+   - summary
+   - issue counts
+   - grouped issues
+   - dashboard display
+
+What you see is what gets analysed - without exceptions.
+
+---
+
+## ⏱️ Time Filtering Enhancements
+**Preset Filtering (refined)**
+- Maintains existing relative time presets:
+   - Last 15 minutes
+   - 1 hour
+   - 6 hours
+   - 24 hours
+
+- Custom Datetime Range (new)
+   - Added From / To datetime selection
+   - Built using locally bundled Flatpickr
+   - Supports precise investigation of specific time windows
+
+Behaviour:
+
+- Presets and custom ranges are mutually exclusive
+- Selecting a preset exits custom mode
+ -Returning to custom:
+   - From persists
+   - To refreshes to current time
+
+---
+
+## 🎛️ UI & Behaviour
+- Custom time controls integrated into filter panel
+- Improved visual consistency across toolbar and filter inputs
+- Divider headings updated for full theme compatibility
+- Max lines input behaviour refined:
+   - Debounced refresh on valid input
+   - Normalisation on Enter / blur
+   - Enforced bounds (min / max / default)
 
 ---
 
 ## 🛠️ Implementation Notes
-
-- Frontend-first implementation using existing timestamp extraction
-- Normalised log timestamp parsing for compatibility (e.g. Kokoro logs)
-- Designed for future backend-assisted filtering
+- Added applyTimeFilterToLines(...) to payload construction path
+- Refactored time filter model:
+   - supports preset strings
+   - supports structured filter objects:
+      - { mode: "relative", preset }
+      - { mode: "absolute", from, to }
+- Introduced central activeTimeFilter state
+- Dynamic loading of Flatpickr assets from plugin bundle
+- Corrected UI initialisation order for datetime pickers
 
 ---
 
 ## 🧪 Testing
 
-- Verified consistency between counts, sections, and analysis under time filtering
-- Confirmed correct handling of:
-  - Timestamped entries
-  - Untimestamped lines (anchor inheritance)
-- UI validation for scope consistency and responsiveness
+- Verified payload integrity across:
+   - full view
+   - section view
+   - single issue scope
+- Confirmed elimination of:
+   - time-filter leakage into payloads
+   - summary mismatch with visible data
+- Validated custom datetime behaviour across mode transitions
+- Cross-platform testing:
+   - Windows
+   - Linux (Halo)
+- Stress-tested under repeated analysis triggers
 
 ---
 
 ## ⚠️ Notes
 
-- All counts, sections, and analysis now reflect the active time-filtered dataset
-- Custom time ranges deferred to a future version
+- Prompt text for chat analysis remains unchanged in this version
+  (part of the current analysis trigger contract)
+- Custom time ranges now implemented
+  (previously deferred in v0.3.7)
 
 ---
 
 ## 📦 Status
 
-Ready for wider community testing with enhanced diagnostic precision
+Stable and verified.
+Ready for wider community testing with improved diagnostic accuracy and consistency.

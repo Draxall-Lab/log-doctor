@@ -2,7 +2,7 @@
   "name": "log-doctor",
   "display_name": "Log Doctor",
   "short_name": "Log Doctor",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Diagnoses Sapphire issues using logs and a structured diagnostics panel.",
   "author": "Draxall",
   "icon": "🩺",
