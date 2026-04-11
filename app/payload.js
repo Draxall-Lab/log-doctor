@@ -5,13 +5,39 @@ import {
   timeFilterLabel,
   parseFilterTerms,
   getVisibleBlocks,
+  applyTimeFilterToLines,
+  applyTextFilterToLines,
   applyTextFilterToGrouped,
   groupLines 
 } from "./filters.js";
+
 import { getLastData } from "./state.js";
 
 let _analysePayloads = new Map();
 let _analyseSeq = 0;
+
+function buildScopedSummary(lines, baseSummary = {}) {
+  const counts = { error: 0, warning: 0, debug: 0, plugin: 0 };
+
+  for (const line of lines || []) {
+    const category = line?.category;
+    if (category === "error") counts.error++;
+    else if (category === "warning") counts.warning++;
+    else if (category === "debug") counts.debug++;
+    else if (category === "plugin") counts.plugin++;
+  }
+
+  const parts = [];
+  if (counts.error) parts.push(`${counts.error} error(s)`);
+  if (counts.warning) parts.push(`${counts.warning} warning(s)`);
+  if (counts.debug) parts.push(`${counts.debug} debug line(s)`);
+  if (counts.plugin) parts.push(`${counts.plugin} plugin line(s)`);
+
+  return {
+    ...baseSummary,
+    overall_summary: parts.length ? parts.join(", ") : "No relevant lines found"
+  };
+}
 
 export function registerAnalysePayload(payload) {
   const id = `ldp-${++_analyseSeq}`;
@@ -66,12 +92,22 @@ export function buildScopedPayload(scope = "current-view", lines = null, label =
   if (!data) return null;
 
   const sections = data.sections || {};
-  const baseLines = lines || getVisibleBlocks(sections);
+  const rawBaseLines = lines || getVisibleBlocks(sections);
+
+  const timeScopedLines =
+    scope === "section-view" && lines
+      ? rawBaseLines
+      : applyTimeFilterToLines(rawBaseLines, currentTimeFilter());
+
+  const visibleLines =
+    scope === "section-view" && lines
+      ? timeScopedLines
+      : applyTextFilterToLines(timeScopedLines);
 
   const grouped =
     scope === "section-view" && lines
-      ? groupLines(baseLines)
-      : applyTextFilterToGrouped(groupLines(baseLines));
+      ? groupLines(visibleLines)
+      : applyTextFilterToGrouped(groupLines(visibleLines));
 
   let selected;
 
@@ -83,13 +119,15 @@ export function buildScopedPayload(scope = "current-view", lines = null, label =
     selected = grouped.slice(0, 8);
   }
 
+  const scopedSummary = buildScopedSummary(visibleLines, data.summary || {});
+
   return {
     source: "log-doctor",
     scope,
     label,
     generated_at: new Date().toISOString(),
     filters: activeFilterState(),
-    summary: data.summary || {},
+    summary: scopedSummary,
     issue_count: selected.length,
     total_grouped_issues: grouped.length,
     truncated: grouped.length > selected.length,

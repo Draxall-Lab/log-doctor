@@ -7,8 +7,8 @@ It turns raw application logs into structured, grouped issues and allows you to 
 It continues to function even when no AI provider is available, making it useful as both a diagnostic tool and an AI-assisted interpreter.
 
 ## 📦 Requirements
-Sapphire v2.5.x or later
-LLM provider (optional, required for in-app analysis)
+- Sapphire v2.5.x or later
+- LLM provider (optional, required for in-app analysis)
 
 Log parsing and payload generation work independently of the LLM.
 
@@ -20,8 +20,8 @@ https://github.com/ddxfish/sapphire
 
 Most log tools either:
 
-show raw logs, or
-depend entirely on AI to interpret them
+- show raw logs, or
+- depend entirely on AI to interpret them
 
 Log Doctor separates:
 
@@ -35,7 +35,8 @@ AI becomes an enhancement, not a dependency
 
 ## 🚀 Features
 
-📊 Dashboard & Log Analysis
+## 📊 Dashboard & Log Analysis
+
 Multi-log support:
 Sapphire
 Kokoro
@@ -47,7 +48,7 @@ Source and type filtering
 Text search (supports OR, AND, NOT logic)
 Hot issue highlighting
 
-## 🔍 Unified Filtering Model (v0.3.7)
+## 🔍 Unified Filtering Model (v0.3.8)
 
 All UI elements operate from a single filtered dataset.
 
@@ -57,7 +58,7 @@ What you see is what gets analysed.
 
 Counts, sections, and analysis are always aligned with the current view.
 
-⏱️ Time-Based Filtering (v0.3.7)
+## ⏱️ Time-Based Filtering (v0.3.8)
 Filter logs by:
 Last 15 minutes
 Last 1 hour
@@ -65,6 +66,21 @@ Last 6 hours
 Last 24 hours
 Reduces noise in large log sets
 Enables focused “what just happened?” workflows
+
+## ⏱️ Custom Time Range (v0.3.8)
+
+In addition to preset time filters, Log Doctor now supports custom date/time ranges.
+
+Features:
+
+- Select a precise From and To range
+- Presets and custom ranges are mutually exclusive
+- Switching back to a preset restores relative filtering
+- Returning to Custom:
+  - From persists
+  - To refreshes to current time
+
+This enables precise investigation of specific time windows beyond preset ranges.
 
 Behaviour:
 
@@ -92,12 +108,25 @@ In-memory payload registry (no DOM JSON corruption)
 Pre-chat context injection
 Clean separation between UI and LLM
 
+## 🔒 Data Consistency (v0.3.8)
+
+All payloads and summaries are now strictly derived from the visible filtered dataset.
+
+This ensures:
+
+- Time filters are applied consistently across UI and analysis
+- Payloads cannot include out-of-scope log lines
+- Summary counts reflect exactly what is visible
+
+What you see is what gets analysed — without exceptions.
+
 ## 🛡️ Stability & Resilience
 Anti-hammering protection
 In-flight request locking
 Cooldown handling on rate limit (HTTP 429)
 Stable under rapid repeated input (stress tested)
 Continues to function without an LLM provider
+
 ## 🎨 UI & Theme Compatibility
 Fully tokenised styling (--ld-*)
 Works across:
@@ -170,7 +199,8 @@ Copy the payload
 Paste into another AI tool
 
 ## ⚠️ Known Behaviour
-Counts by Source reflect the current filtered dataset (including time filter)
+
+Counts by Source always reflects the current filtered dataset (including time filter)
 Hidden context may occasionally surface under extreme rapid input
 Busy indicator may briefly flicker during very fast operations
 
@@ -178,8 +208,12 @@ These are edge-case behaviours and do not affect normal operation.
 
 ## 🧭 Version
 
-Current version: v0.3.7
-This version introduces a unified filtering model where all counts, sections, and analysis reflect the same filtered dataset.
+Current version: v0.3.8
+This version introduces:
+
+- strict alignment between UI, payload, and summary data
+- custom datetime range filtering
+- improved consistency across all analysis scopes
 
 ## 🧪 Status
 Functional testing: ✅
@@ -202,7 +236,7 @@ flexible interpretation across different AI systems
 
 ## 📌 Future Ideas
 Time-aware summary metrics (Counts by Source alignment)
-Custom time ranges
+Enhanced custom time controls (presets + saved ranges)
 Trend detection
 Root cause clustering
 Exportable reports

@@ -1,3 +1,38 @@
+let activeTimeFilter = {
+  mode: "relative",
+  preset: "all"
+};
+
+export function setTimeFilter(filter) {
+  if (!filter || typeof filter !== "object") {
+    activeTimeFilter = { mode: "relative", preset: "all" };
+    return;
+  }
+
+  if (filter.mode === "absolute") {
+    activeTimeFilter = {
+      mode: "absolute",
+      from: filter.from || null,
+      to: filter.to || null
+    };
+    return;
+  }
+
+  activeTimeFilter = {
+    mode: "relative",
+    preset: filter.preset || "all"
+  };
+}
+
+export function syncTimeFilterControl(container = document) {
+  const el = container.querySelector("#ld-time-filter");
+  if (!el) return;
+
+  el.value = activeTimeFilter.mode === "absolute"
+    ? "custom"
+    : (activeTimeFilter.preset || "all");
+}
+
 export function currentTextFilter() {
   const el = document.querySelector("#ld-text-filter");
   return el ? String(el.value || "").trim() : "";
@@ -269,18 +304,51 @@ function matchesTerms(item, terms) {
 }
 
 export function currentTimeFilter() {
-  const el = document.querySelector("#ld-time-filter");
-  return (el?.value || "all").trim();
+  return activeTimeFilter;
+}
+
+function formatTimeFilterDateTime(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Invalid date";
+
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = String(d.getFullYear()).slice(-2);
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 export function timeFilterLabel(value) {
-  switch (value) {
-    case "15m": return "Last 15 minutes";
-    case "1h": return "Last 1 hour";
-    case "6h": return "Last 6 hours";
-    case "24h": return "Last 24 hours";
-    default: return "All time";
+  if (!value) return "All time";
+
+  if (typeof value === "string") {
+    switch (value) {
+      case "15m": return "Last 15 minutes";
+      case "1h": return "Last 1 hour";
+      case "6h": return "Last 6 hours";
+      case "24h": return "Last 24 hours";
+      case "custom": return "Custom range";
+      default: return "All time";
+    }
   }
+
+  if (value.mode === "relative") {
+    switch (value.preset) {
+      case "15m": return "Last 15 minutes";
+      case "1h": return "Last 1 hour";
+      case "6h": return "Last 6 hours";
+      case "24h": return "Last 24 hours";
+      default: return "All time";
+    }
+  }
+
+  if (value.mode === "absolute") {
+    return `${formatTimeFilterDateTime(value.from)} → ${formatTimeFilterDateTime(value.to)}`;
+  }
+
+  return "All time";
 }
 
 export function relativeWindowMs(value) {
@@ -293,14 +361,34 @@ export function relativeWindowMs(value) {
   }
 }
 
-export function applyTimeFilterToLines(lines, preset, now = Date.now()) {
+export function applyTimeFilterToLines(lines, filter, now = Date.now()) {
   if (!Array.isArray(lines) || !lines.length) return Array.isArray(lines) ? lines : [];
-  if (!preset || preset === "all") return lines;
+  if (!filter) return lines;
 
-  const windowMs = relativeWindowMs(preset);
-  if (!windowMs) return lines;
+  let fromMs = null;
+  let toMs = null;
 
-  const cutoff = now - windowMs;
+  if (typeof filter === "string") {
+    if (filter === "all") return lines;
+    const windowMs = relativeWindowMs(filter);
+    if (!windowMs) return lines;
+    fromMs = now - windowMs;
+    toMs = now;
+  } else if (filter.mode === "relative") {
+    if (!filter.preset || filter.preset === "all") return lines;
+    const windowMs = relativeWindowMs(filter.preset);
+    if (!windowMs) return lines;
+    fromMs = now - windowMs;
+    toMs = now;
+  } else if (filter.mode === "absolute") {
+    fromMs = parseLogTimestamp(filter.from)?.getTime() ?? null;
+    toMs = parseLogTimestamp(filter.to)?.getTime() ?? null;
+
+    if (fromMs == null || toMs == null) return lines;
+  } else {
+    return lines;
+  }
+
   const result = [];
   let anchorIncluded = false;
 
@@ -311,7 +399,7 @@ export function applyTimeFilterToLines(lines, preset, now = Date.now()) {
 
     if (ts) {
       const time = ts.getTime();
-      anchorIncluded = time >= cutoff && time <= now;
+      anchorIncluded = time >= fromMs && time <= toMs;
       if (anchorIncluded) result.push(line);
     } else if (anchorIncluded) {
       result.push(line);
