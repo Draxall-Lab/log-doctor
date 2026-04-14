@@ -4,7 +4,9 @@ Log Doctor is a diagnostic dashboard and AI-assisted analysis tool for Sapphire.
 
 It turns raw application logs into structured, grouped issues and allows you to analyse them directly in chat using a payload-driven system.
 
-It continues to function even when no AI provider is available, making it useful as both a diagnostic tool and an AI-assisted interpreter.
+It continues to function even without an AI provider, making it useful as both a diagnostic tool and an AI-assisted interpreter.
+
+It’s designed to bridge the gap between raw logs and meaningful insight, with or without AI.
 
 ## 📦 Requirements
 - Sapphire v2.5.x or later
@@ -30,12 +32,12 @@ Interpretation (AI or external analysis)
 
 This means:
 
-you always get usable diagnostics
+You always get usable diagnostics
 AI becomes an enhancement, not a dependency
 
 ## 🚀 Features
 
-## 📊 Dashboard & Log Analysis
+### 📊 Dashboard & Log Analysis
 
 Multi-log support:
 Sapphire
@@ -48,7 +50,20 @@ Source and type filtering
 Text search (supports OR, AND, NOT logic)
 Hot issue highlighting
 
-## 🔍 Unified Filtering Model (v0.3.8)
+### 🔄 Version Awareness (v0.3.9)
+
+Log Doctor now includes built-in version awareness.
+
+Features:
+
+- Displays current plugin version in the Diagnostics panel
+- Performs a one-time update check on load
+- Shows a subtle “Update Available” indicator in the status bar when applicable
+- No background polling or intrusive notifications
+
+This keeps the interface clean while ensuring users stay informed.
+
+### 🔍 Unified Filtering Model (v0.3.8)
 
 All UI elements operate from a single filtered dataset.
 
@@ -58,7 +73,7 @@ What you see is what gets analysed.
 
 Counts, sections, and analysis are always aligned with the current view.
 
-## ⏱️ Time-Based Filtering (v0.3.8)
+### ⏱️ Time-Based Filtering (v0.3.8)
 Filter logs by:
 Last 15 minutes
 Last 1 hour
@@ -67,7 +82,7 @@ Last 24 hours
 Reduces noise in large log sets
 Enables focused “what just happened?” workflows
 
-## ⏱️ Custom Time Range (v0.3.8)
+### ⏱️ Custom Time Range (v0.3.8)
 
 In addition to preset time filters, Log Doctor now supports custom date/time ranges.
 
@@ -90,7 +105,7 @@ Acts as an AND constraint with other filters
 Untimestamped lines are included using anchor-based inheritance
 (they follow the last valid timestamped entry)
 
-## 🧠 Chat-Based Analysis
+### 🧠 Chat-Based Analysis
 Analyse Current View → entire visible dataset
 Analyse Top Issues
 Analyse individual sections
@@ -102,13 +117,13 @@ UI-scoped
 payload-driven
 injected into chat via hidden context
 
-## ⚙️ Robust Interaction Model
+### ⚙️ Robust Interaction Model
 One-shot payload system (no tool recursion)
 In-memory payload registry (no DOM JSON corruption)
 Pre-chat context injection
 Clean separation between UI and LLM
 
-## 🔒 Data Consistency (v0.3.8)
+### 🔒 Data Consistency (v0.3.8)
 
 All payloads and summaries are now strictly derived from the visible filtered dataset.
 
@@ -120,14 +135,14 @@ This ensures:
 
 What you see is what gets analysed — without exceptions.
 
-## 🛡️ Stability & Resilience
+### 🛡️ Stability & Resilience
 Anti-hammering protection
 In-flight request locking
 Cooldown handling on rate limit (HTTP 429)
 Stable under rapid repeated input (stress tested)
 Continues to function without an LLM provider
 
-## 🎨 UI & Theme Compatibility
+### 🎨 UI & Theme Compatibility
 Fully tokenised styling (--ld-*)
 Works across:
 Dark mode
@@ -137,7 +152,7 @@ Wolfreaper's Themes plugin
 Ghost-style action buttons for theme safety
 Improved contrast and readability across all modes
 
-## 🧪 Debug & Payload Export
+### 🧪 Debug & Payload Export
 Debug panel shows:
 Internal diagnostic data
 Last Analyse Payload
@@ -208,12 +223,13 @@ These are edge-case behaviours and do not affect normal operation.
 
 ## 🧭 Version
 
-Current version: v0.3.8
+Current version: v0.3.9
 This version introduces:
 
-- strict alignment between UI, payload, and summary data
-- custom datetime range filtering
-- improved consistency across all analysis scopes
+- version awareness within the UI (Diagnostics panel)
+- one-shot update check on load
+- subtle update indicator in the status bar
+- improved UX separation between system metadata and analysis state
 
 ## 🧪 Status
 Functional testing: ✅

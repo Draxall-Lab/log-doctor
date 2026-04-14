@@ -20,14 +20,191 @@ import {
 } from "./payload.js";
 
 import {
-  currentSortMode,
-  currentTextFilter,
   currentTimeFilter,
   timeFilterLabel,
-  parseFilterTerms,
   setTimeFilter,
   syncTimeFilterControl,
 } from "./filters.js";
+
+import { loadUiPrefs, saveUiPrefs, getDefaultUiPrefs } from "./prefs.js";
+
+import { loadPluginMeta, checkPluginUpdate } from "./api.js";
+import { setInstalledVersion,
+         isUpdateAvailable,
+         getLatestVersion,
+         setLatestVersion } from "./version.js";
+
+async function initVersionAwareness() {
+  try {
+
+    const meta = await loadPluginMeta();
+
+    setInstalledVersion(meta?.version || null);
+
+  } catch (err) {
+
+  }
+
+  try {
+
+    const update = await checkPluginUpdate();
+
+    setLatestVersion(update?.remote_version || null);
+
+  } catch (err) {
+
+  }
+
+  rerenderCurrentView();
+  updateScopeStatus("Refreshed");
+}
+
+function updateAndRender(container) {
+  const state = readUiStateFromDom(container);
+  saveUiPrefs(state);
+  rerenderCurrentView();
+  updateScopeStatus("Refreshed");
+}
+
+function applyUiStateToDom(container, prefs) {
+  // TEXT FILTER
+  const textFilter = container.querySelector("#ld-text-filter");
+  if (textFilter) textFilter.value = prefs.textFilter || "";
+
+  // MAX LINES
+  const maxLines = container.querySelector("#ld-max-lines");
+  if (maxLines) maxLines.value = prefs.maxLines ?? 5000;
+
+  // SORT
+  const sort = container.querySelector("#ld-sort-mode");
+  if (sort) sort.value = prefs.sortMode || "frequency";
+
+  // SOURCES
+  Object.entries(prefs.sources || {}).forEach(([key, val]) => {
+    const el = container.querySelector(`#ld-source-${key}`);
+    if (el) el.checked = !!val;
+  });
+
+  // TYPES
+  Object.entries(prefs.types || {}).forEach(([key, val]) => {
+    const el = container.querySelector(`#ld-type-${key}`);
+    if (el) el.checked = !!val;
+  });
+
+  // DIAGNOSTICS
+  const diag = container.querySelector("#ld-toggle-diagnostics");
+  if (diag) diag.checked = !!prefs.toggles?.diagnostics;
+
+  // TIME FILTER
+const timeSelect = container.querySelector("#ld-time-filter");
+const customPanel = container.querySelector("#ld-time-custom");
+const fromEl = container.querySelector("#ld-time-from");
+const toEl = container.querySelector("#ld-time-to");
+
+if (prefs.timeFilter) {
+  // Always restore stored custom values, even if current mode is relative
+
+  if (fromEl) {
+    if (prefs.timeFilter.from) {
+      if (fromEl._flatpickr) {
+        fromEl._flatpickr.setDate(prefs.timeFilter.from, false);
+      } else {
+        fromEl.value = prefs.timeFilter.from;
+      }
+    } else {
+      if (fromEl._flatpickr) {
+        fromEl._flatpickr.clear();
+      } else {
+        fromEl.value = "";
+      }
+    }
+  }
+
+  if (toEl) {
+    if (prefs.timeFilter.to) {
+      if (toEl._flatpickr) {
+        toEl._flatpickr.setDate(prefs.timeFilter.to, false);
+      } else {
+        toEl.value = prefs.timeFilter.to;
+      }
+    } else {
+      if (toEl._flatpickr) {
+        toEl._flatpickr.clear();
+      } else {
+        toEl.value = "";
+      }
+    }
+  }
+
+  // Apply active mode
+  if (prefs.timeFilter.mode === "absolute") {
+    setTimeFilter({
+      mode: "absolute",
+      from: prefs.timeFilter.from || "",
+      to: prefs.timeFilter.to || ""
+    });
+
+    if (timeSelect) timeSelect.value = "custom";
+    if (customPanel) customPanel.style.display = "block";
+  } else {
+    setTimeFilter({
+      mode: "relative",
+      preset: prefs.timeFilter.preset || "all",
+      from: prefs.timeFilter.from || "",
+      to: prefs.timeFilter.to || ""
+    });
+
+    if (timeSelect) timeSelect.value = prefs.timeFilter.preset || "all";
+    if (customPanel) customPanel.style.display = "none";
+  }
+}
+
+  syncTimeFilterControl(container);
+}
+
+function readUiStateFromDom(container) {
+  const timeSelect = container.querySelector("#ld-time-filter");
+  const fromEl = container.querySelector("#ld-time-from");
+  const toEl = container.querySelector("#ld-time-to");
+
+  const preset = timeSelect?.value || "all";
+  const isCustom = preset === "custom";
+
+  return {
+    textFilter: container.querySelector("#ld-text-filter")?.value || "",
+    maxLines: Number(container.querySelector("#ld-max-lines")?.value) || 5000,
+    sortMode: container.querySelector("#ld-sort-mode")?.value || "frequency",
+
+    sources: {
+      sapphire: container.querySelector("#ld-source-sapphire")?.checked ?? true,
+      kokoro: container.querySelector("#ld-source-kokoro")?.checked ?? true,
+      startup: container.querySelector("#ld-source-startup")?.checked ?? true,
+      story: container.querySelector("#ld-source-story")?.checked ?? true
+    },
+
+    types: {
+      errors: container.querySelector("#ld-type-errors")?.checked ?? true,
+      warnings: container.querySelector("#ld-type-warnings")?.checked ?? true,
+      plugin: container.querySelector("#ld-type-plugin")?.checked ?? true,
+      debug: container.querySelector("#ld-type-debug")?.checked ?? true
+    },
+
+    toggles: {
+      diagnostics: container.querySelector("#ld-toggle-diagnostics")?.checked ?? false
+    },
+
+    timeFilter: {
+      mode: isCustom ? "absolute" : "relative",
+      preset: isCustom ? "custom" : preset,
+      from: fromEl?.value || "",
+      to: toEl?.value || ""
+    },
+
+    timeDisplay: {
+      format12h: container.querySelector("#ld-time-display-format")?.value === "12"
+}
+  };
+}
 
 async function reloadAndRender() {
   const data = await loadReport();
@@ -109,7 +286,13 @@ function updateScopeStatus(prefix = "Refreshed") {
   if (!statusEl) return;
 
   const label = timeFilterLabel(currentTimeFilter());
-  statusEl.textContent = `${prefix} • ⏱ ${label}`;
+  let html = `${prefix} • ⏱ ${label}`;
+
+  if (isUpdateAvailable()) {
+    html += ` • <span class="ld-update">v${getLatestVersion()} Update Available</span>`;
+  }
+
+  statusEl.innerHTML = html;
 }
 
 async function analyseInChat() {
@@ -209,6 +392,8 @@ function injectStyles() {
       --ld-accent-primary-hover: #16a34a;
       --ld-accent-secondary: #3b82f6;
       --ld-accent-secondary-hover: #2563eb;
+      --ld-accent-tertiary: #f59e0b;          /* orange */
+      --ld-accent-tertiary-hover: #d97706;
 
       --ld-status-error: #ff6b6b;
       --ld-status-warning: #f0b84b;
@@ -222,7 +407,11 @@ function injectStyles() {
       --ld-shadow-elevated: 0 6px 18px rgba(0, 0, 0, 0.16);
     }
 
-   .ld-tag-debug {
+   .ld-update {
+     color: var(--ld-accent-tertiary);;
+}
+
+    .ld-tag-debug {
      color: var(--ld-status-debug);
    }
    .ld-debug-payload {
@@ -252,7 +441,7 @@ function injectStyles() {
   #ld-time-custom {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 10px;
     flex-wrap: wrap;
   }
 
@@ -264,51 +453,43 @@ function injectStyles() {
     color: var(--ld-text, #ddd);
   }
 
-  #ld-time-from,
-  #ld-time-to {
-    min-width: 170px;
-  }
-
-  #ld-time-apply {
-    white-space: nowrap;
-  }
-
   #ld-time-filter,
   #ld-time-from,
-  #ld-time-to,
-  #ld-time-apply {
+  #ld-time-to {
     background: var(--ld-surface);
     color: var(--ld-text-primary);
     border: 1px solid var(--ld-border-subtle);
     border-radius: 6px;
     box-sizing: border-box;
     min-height: 34px;
-}
-
-  #ld-time-filter,
-  #ld-time-from,
-  #ld-time-to {
     padding: 8px 10px;
 }
 
   #ld-time-filter {
+    width: 150px;  
     min-width: 150px;
 }
 
   #ld-time-from,
   #ld-time-to {
-    min-width: 170px;
+    width: 150px;  
+    min-width: 150px;
 }
+  #ld-time-custom input[type="hidden"] + input {
+    width: 150px;
+    min-width: 150px;
+    background: var(--ld-surface);
+    color: var(--ld-text-primary);
+    border: 1px solid var(--ld-border-subtle);
+    border-radius: 6px;
+    box-sizing: border-box;
+    min-height: 34px;
+    padding: 8px 10px;
+  }
 
-  #ld-time-apply {
-    padding: 8px 12px;
-    cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
-}
-
-  #ld-time-apply:hover {
-    background: var(--ld-surface-hover);
-    border-color: var(--ld-border-strong);
+  #ld-time-display-format {
+    width: 80px;
+    min-width: 80px;
 }
 
   #ld-time-filter:focus,
@@ -317,6 +498,50 @@ function injectStyles() {
   #ld-time-apply:focus {
     outline: none;
     border-color: var(--ld-border-strong);
+}
+
+  .ld-filter-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px; /* or 12px if you want it airier */
+}
+
+  .ld-filter-actions .ld-btn { 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    padding: 8px 10px;
+    text-decoration: none;
+    white-space: nowrap; 
+    cursor: pointer;
+}
+
+.ld-filter-actions .ld-btn-reset {
+  border: 1px solid var(--ld-accent-secondary);
+  background: var(--ld-accent-secondary);
+  color: #fff;
+}
+
+.ld-filter-actions .ld-btn-reset:hover {
+  background: var(--ld-accent-secondary-hover);
+  border-color: var(--ld-accent-secondary-hover);
+}
+
+.ld-filter-actions .ld-btn-help {
+  border: 1px solid var(--ld-accent-tertiary);
+  background: var(--ld-accent-tertiary);
+  color: #fff;
+  font-weight: 700;
+  min-width: 34px;
+}
+
+.ld-filter-actions .ld-btn-help:hover {
+  background: var(--ld-accent-tertiary-hover);
+  border-color: var(--ld-accent-tertiary-hover);
+}
+
 }
 
   .ld-section-divider {
@@ -442,28 +667,6 @@ function injectStyles() {
      letter-spacing: 0.1em;
      text-transform: uppercase;
      line-height: 1.2;
-}
-
-   .ld-help-btn {
-     display: inline-flex;
-     align-items: center;
-     justify-content: center;
-     width: 26px;
-     height: 26px;
-     border-radius: 6px;
-     font-size: 0.9em;
-     font-weight: bold;
-     text-decoration: none;
-     color: var(--ld-text, #ddd);
-     background: var(--ld-surface-2, #333);
-     border: 1px solid var(--ld-border, #444);
-     cursor: pointer;
-     transition: all 0.15s ease;
-   }
-
-.ld-help-btn:hover {
-  background: var(--ld-accent, #4da3ff);
-  color: #fff;
 }
 
     .ld-shell {
@@ -866,6 +1069,7 @@ function injectStyles() {
 
 export async function render(container) {
   setContainer(container);
+
   injectStyles();
 
   injectFlatpickrCss();
@@ -957,17 +1161,28 @@ discord+timeout-plugin"
               <option value="custom">Custom range</option>
             </select>
 
-          <div id="ld-time-custom" style="display: none;">
-            <label>From <input id="ld-time-from" placeholder="From date & time"></label>
-            <label>To <input id="ld-time-to" placeholder="To date & time"></label>
-            <button id="ld-time-apply" type="button">Apply</button>
+            <div id="ld-time-custom" style="display: none;">
+              <label>From <input id="ld-time-from" placeholder="From date & time"></label>
+              <label>To <input id="ld-time-to" placeholder="To date & time"></label>
+              
+              <label class="ld-time-format">
+              <select id="ld-time-display-format">
+                <option value="24">24h</option>
+                <option value="12">12h</option>
+              </select>
+              </label>
+              
+            </div>
           </div>
+
+          <div class="ld-filter-actions">
+            <button id="ld-reset-filters" class="ld-btn ld-btn-reset">Reset Filters</button>
 
             <a
               href="https://github.com/Draxall-Lab/log-doctor#readme"
               target="_blank"
               rel="noopener noreferrer"
-              class="ld-help-btn"
+              class="ld-btn ld-btn-help"
               title="Open help"
               aria-label="Help"
             >
@@ -981,6 +1196,26 @@ discord+timeout-plugin"
     </div>
   `;
 
+  const uiPrefs = loadUiPrefs();
+  applyUiStateToDom(container, uiPrefs);
+
+  const timeFormatSelect = container.querySelector("#ld-time-display-format");
+
+  // initialise UI from prefs
+  timeFormatSelect.value = uiPrefs?.timeDisplay?.format12h ? "12" : "24";
+
+  // handle toggle
+  timeFormatSelect?.addEventListener("change", () => {
+    const use12h = timeFormatSelect.value === "12";
+
+    const state = readUiStateFromDom(container);
+    state.timeDisplay = { format12h: use12h };
+
+    saveUiPrefs(state);
+
+    rebuildTimePickers(container, use12h);
+});
+
   function updateScopeStatus(prefix = "Refreshed") {
     const statusEl = container.querySelector("#ld-status");
     if (!statusEl) return;
@@ -989,102 +1224,214 @@ discord+timeout-plugin"
     statusEl.textContent = `${prefix} • ⏱ ${label}`;
   }
 
+  function formatDateTimeLocal(date) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function startOfDay(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+   return d;
+ }
+
+  const resetFiltersBtn = container.querySelector("#ld-reset-filters");
+
+  resetFiltersBtn?.addEventListener("click", () => {
+    const defaults = getDefaultUiPrefs();
+
+    applyUiStateToDom(container, defaults);
+    saveUiPrefs(defaults);
+
+    rerenderCurrentView();
+    updateScopeStatus("Refreshed");
+    showToastSafe("Filters reset to defaults", "info");
+  });
+
   syncTimeFilterControl(container);
 
   const timeSelect = container.querySelector("#ld-time-filter");
-  const customPanel = container.querySelector("#ld-time-custom");
+const customPanel = container.querySelector("#ld-time-custom");
+const use12h = !!uiPrefs?.timeDisplay?.format12h;
 
-  if (customPanel) {
-    customPanel.style.display = currentTimeFilter()?.mode === "absolute" ? "block" : "none";
-  }
+const timeDisplaySelect = container.querySelector("#ld-time-display-format");
+if (timeDisplaySelect) {
+  timeDisplaySelect.value = use12h ? "12" : "24";
+}
 
- requestAnimationFrame(() => {
+if (customPanel) {
+  customPanel.style.display = currentTimeFilter()?.mode === "absolute" ? "block" : "none";
+}
+
+function buildFlatpickrConfig({ use12h, defaultDate, onChange }) {
+  return {
+    enableTime: true,
+    time_24hr: !use12h,
+    dateFormat: "Y-m-d H:i",
+    altInput: true,
+    altFormat: use12h ? "Y-m-d h:i K" : "Y-m-d H:i",
+    defaultDate,
+    onChange
+  };
+}
+
+function rebuildTimePickers(container, use12h) {
   const fromEl = container.querySelector("#ld-time-from");
   const toEl = container.querySelector("#ld-time-to");
 
-  if (fromEl && !fromEl._flatpickr) {
-    flatpickr(fromEl, {
-      enableTime: true,
-      dateFormat: "Y-m-d H:i",
-      time_24hr: true
-    });
-  }
+  const fromValue = fromEl?.value || "";
+  const toValue = toEl?.value || "";
 
-  if (toEl && !toEl._flatpickr) {
-    flatpickr(toEl, {
-      enableTime: true,
-      dateFormat: "Y-m-d H:i",
-      time_24hr: true,
-      defaultDate: new Date()
-    });
-  }
+  fromEl?._flatpickr?.destroy();
+  toEl?._flatpickr?.destroy();
+
+  requestAnimationFrame(() => {
+    if (fromEl) {
+      flatpickr(fromEl, buildFlatpickrConfig({
+        use12h,
+        onChange: () => {
+          const fromPicker = fromEl._flatpickr;
+          const toPicker = toEl?._flatpickr;
+
+          const from = fromPicker?.selectedDates?.[0] || null;
+          const to = toPicker?.selectedDates?.[0] || null;
+
+          if (from && to && from > to) {
+            const adjustedFrom = startOfDay(to);
+
+            if (fromPicker) {
+              fromPicker.setDate(adjustedFrom, false);
+            } else {
+              fromEl.value = formatDateTimeLocal(adjustedFrom);
+            }
+
+            showToastSafe("From cannot be later than To. Range adjusted.", "info");
+          }
+
+          setTimeFilter({
+            mode: "absolute",
+            from: fromEl.value || "",
+            to: toEl?.value || ""
+          });
+
+          saveUiPrefs(readUiStateFromDom(container));
+          rerenderCurrentView();
+          updateScopeStatus("Refreshed");
+        }
+      }));
+
+      if (fromValue) {
+        fromEl._flatpickr?.setDate(fromValue, false);
+      }
+    }
+
+    if (toEl) {
+      flatpickr(toEl, buildFlatpickrConfig({
+        use12h,
+        defaultDate: new Date(),
+        onChange: () => {
+          const fromPicker = fromEl?._flatpickr;
+          const toPicker = toEl._flatpickr;
+
+          const from = fromPicker?.selectedDates?.[0] || null;
+          const to = toPicker?.selectedDates?.[0] || null;
+
+          if (from && to && to < from) {
+            const now = new Date();
+            const adjustedTo = from > now ? from : now;
+
+            if (toPicker) {
+              toPicker.setDate(adjustedTo, false);
+            } else {
+              toEl.value = formatDateTimeLocal(adjustedTo);
+            }
+
+            showToastSafe("To cannot be earlier than From. Range adjusted.", "info");
+          }
+
+          setTimeFilter({
+            mode: "absolute",
+            from: fromEl?.value || "",
+            to: toEl.value || ""
+          });
+
+          saveUiPrefs(readUiStateFromDom(container));
+          rerenderCurrentView();
+          updateScopeStatus("Refreshed");
+        }
+      }));
+
+      if (toValue) {
+        toEl._flatpickr?.setDate(toValue, false);
+      }
+    }
+  });
+}
+
+rebuildTimePickers(container, use12h);
+
+timeDisplaySelect?.addEventListener("change", () => {
+  const format12h = timeDisplaySelect.value === "12";
+
+  const state = readUiStateFromDom(container);
+  state.timeDisplay = { format12h };
+
+  saveUiPrefs(state);
+  rebuildTimePickers(container, format12h);
 });
 
   timeSelect?.addEventListener("change", () => {
     const val = timeSelect.value;
 
-    if (val === "custom") {
-      if (customPanel) customPanel.style.display = "block";
-
-    const toEl = container.querySelector("#ld-time-to");
-    const toPicker = toEl?._flatpickr;
-
-    if (toPicker && !wasCustom) {
-      toPicker.setDate(new Date(), false);
-    }
-
-    return;
-  }
-
-  if (customPanel) customPanel.style.display = "none";
-
-  setTimeFilter({
-  mode: "relative",
-  preset: val
-});
-
-syncTimeFilterControl(container);
-rerenderCurrentView();
-updateScopeStatus("Refreshed");
-});
-
-  const applyBtn = container.querySelector("#ld-time-apply");
-
-  applyBtn?.addEventListener("click", () => {
     const fromEl = container.querySelector("#ld-time-from");
     const toEl = container.querySelector("#ld-time-to");
-
     const fromPicker = fromEl?._flatpickr;
     const toPicker = toEl?._flatpickr;
 
-    const from = fromPicker?.selectedDates?.[0];
-    const to = toPicker?.selectedDates?.[0];
+    if (val === "custom") {
+      if (fromEl && !fromEl.value) {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
 
-    if (!from || !to) {
-      showToastSafe("Please select both a start and end date/time", "warning");
-      return;
-    }
+        if (fromPicker) {
+          fromPicker.setDate(startOfToday, false);
+        } else {
+          fromEl.value = formatDateTimeLocal(startOfToday);
+        }
+      }
 
-    if (from > to) {
-      showToastSafe("Start date/time must be before end date/time", "warning");
+      if (toPicker && !toEl?.value) {
+        toPicker.setDate(new Date(), false);
+      }
+
+      setTimeFilter({
+        mode: "absolute",
+        from: fromEl?.value || "",
+        to: toEl?.value || ""
+      });
+
+      syncTimeFilterControl(container);
+      saveUiPrefs(readUiStateFromDom(container));
+      rerenderCurrentView();
+      updateScopeStatus("Refreshed");
       return;
     }
 
     setTimeFilter({
-      mode: "absolute",
-      from: from.toISOString(),
-      to: to.toISOString()
+      mode: "relative",
+      preset: val || "all"
     });
 
-  syncTimeFilterControl(container);
-  rerenderCurrentView();
-  updateScopeStatus("Refreshed");
-});
+    saveUiPrefs(readUiStateFromDom(container));
+    syncTimeFilterControl(container);
+    rerenderCurrentView();
+    updateScopeStatus("Refreshed");
+  });
 
   container.querySelector("#ld-refresh")?.addEventListener("click", async () => {
-  normaliseMaxLinesInput(container);
-  await reloadAndRender();
-});
+    normaliseMaxLinesInput(container);
+    await reloadAndRender();
+  });
 
   container.querySelector("#ld-analyse-chat")?.addEventListener("click", analyseInChat);
 
@@ -1101,54 +1448,82 @@ updateScopeStatus("Refreshed");
     "#ld-sort-mode"
   ].forEach(sel => {
     container.querySelector(sel)?.addEventListener("change", () => {
+      const state = readUiStateFromDom(container);
+      saveUiPrefs(state);
       rerenderCurrentView();
       updateScopeStatus("Refreshed");
     });
   });
 
-const maxLinesInput = container.querySelector("#ld-max-lines");
-let maxLinesTimer;
+  const maxLinesInput = container.querySelector("#ld-max-lines");
+  let maxLinesTimer;
 
-maxLinesInput?.addEventListener("input", () => {
-  clearTimeout(maxLinesTimer);
+  async function applyMaxLinesChange(container) {
+    normaliseMaxLinesInput(container);
 
-  maxLinesTimer = setTimeout(async () => {
-    const raw = String(maxLinesInput.value || "").trim();
+    const maxLinesInput = container.querySelector("#ld-max-lines");
+    const raw = String(maxLinesInput?.value || "").trim();
     const value = Number(raw);
 
     if (!raw) return;
     if (!Number.isFinite(value)) return;
     if (value < 100 || value > 20000) return;
 
-    await reloadAndRender();
-  }, 350);
-});
+    const state = readUiStateFromDom(container);
+    saveUiPrefs(state);
 
-maxLinesInput?.addEventListener("keydown", async (ev) => {
-  if (ev.key === "Enter") {
-    ev.preventDefault();
-    clearTimeout(maxLinesTimer);
-    normaliseMaxLinesInput(container);
     await reloadAndRender();
   }
-});
 
-maxLinesInput?.addEventListener("blur", () => {
-  clearTimeout(maxLinesTimer);
-  normaliseMaxLinesInput(container);
-});
+  function saveMaxLinesIfValid(container) {
+    const maxLinesInput = container.querySelector("#ld-max-lines");
+    const raw = String(maxLinesInput?.value || "").trim();
+    const value = Number(raw);
+
+    if (!raw) return;
+    if (!Number.isFinite(value)) return;
+    if (value < 100 || value > 20000) return;
+
+    const state = readUiStateFromDom(container);
+    saveUiPrefs(state);
+  }
+
+  maxLinesInput?.addEventListener("input", () => {
+    clearTimeout(maxLinesTimer);
+
+    maxLinesTimer = setTimeout(async () => {
+      const raw = String(maxLinesInput.value || "").trim();
+      const value = Number(raw);
+
+      if (!raw) return;
+      if (!Number.isFinite(value)) return;
+      if (value < 100 || value > 20000) return;
+
+      const state = readUiStateFromDom(container);
+      saveUiPrefs(state);
+
+      await reloadAndRender();
+    }, 350);
+  });
+
+  maxLinesInput?.addEventListener("keydown", async (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      clearTimeout(maxLinesTimer);
+      await applyMaxLinesChange(container);
+    }
+  });
+
+  maxLinesInput?.addEventListener("blur", () => {
+    clearTimeout(maxLinesTimer);
+    normaliseMaxLinesInput(container);
+    saveMaxLinesIfValid(container);
+  });
 
   const textFilter = container.querySelector("#ld-text-filter");
   const clearTextFilter = container.querySelector("#ld-text-filter-clear");
 
-  textFilter?.addEventListener("input", rerenderCurrentView);
-
-  textFilter?.addEventListener("keydown", async (ev) => {
-    if (ev.key === "Enter") {
-      ev.preventDefault();
-      await reloadAndRender();
-    }
-  });
+  textFilter?.addEventListener("input", () => updateAndRender(container));
 
   clearTextFilter?.addEventListener("click", () => {
     if (textFilter) {
@@ -1170,6 +1545,7 @@ maxLinesInput?.addEventListener("blur", () => {
 
   await reloadAndRender();
   updateScopeStatus("Refreshed");
+  initVersionAwareness();
 }
 
 export function cleanup() {

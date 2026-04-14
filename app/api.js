@@ -82,3 +82,30 @@ export async function loadReport() {
     throw err;
   }
 }
+
+export async function loadPluginMeta() {
+  const res = await fetch("/api/plugin/log-doctor/meta", {
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function checkPluginUpdate() {
+  const res = await fetch("/api/plugins/log-doctor/check-update", {
+
+    credentials: "same-origin",
+    headers: { Accept: "application/json" }
+  });
+
+  if (!res.ok) return null;
+
+  return res.json();
+}

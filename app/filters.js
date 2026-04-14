@@ -25,12 +25,20 @@ export function setTimeFilter(filter) {
 }
 
 export function syncTimeFilterControl(container = document) {
-  const el = container.querySelector("#ld-time-filter");
-  if (!el) return;
+  const timeSelect = container.querySelector("#ld-time-filter");
+  const customPanel = container.querySelector("#ld-time-custom");
 
-  el.value = activeTimeFilter.mode === "absolute"
+  if (!timeSelect) return;
+
+  const isCustom = activeTimeFilter.mode === "absolute";
+
+  timeSelect.value = isCustom
     ? "custom"
     : (activeTimeFilter.preset || "all");
+
+  if (customPanel) {
+    customPanel.style.display = isCustom ? "block" : "none";
+  }
 }
 
 export function currentTextFilter() {

@@ -1,40 +1,66 @@
-# Log Doctor v0.3.8
+# Log Doctor v0.3.9
 
 Release Type:
-Stability Enhancement / Data Integrity / Feature Expansion
+UX Enhancement / System Awareness / UI Polish
 
 ---
 
 ## 🚀 Highlights
 
-- Fixed time-filter leak in payload construction
-- Implemented strict scoped summary alignment
-- Introduced custom datetime range filtering
-- Achieved full consistency between:
-   - UI view
-   - Payload contents
-   - Analysis results
+- Introduced plugin version awareness within the UI
+- Added one-shot update check on load
+- Implemented subtle update indicator in status bar
+- Completed time filter UX with persistence and live behaviour
 
 ---
 
 ## 🧠 Architecture
 
-- Enforced hard time filtering at payload construction stage
-- Payload now built from the same filtered dataset used for rendering
-- Logs → Parser → Report → Time Filter → Filters → Render → Payload → Context → Chat
-- Eliminated divergence between:
-   - visible log lines
-   - grouped issues
-   - payload contents
+- Version awareness separated from core render pipeline
+- Plugin metadata sourced from backend (plugin.json as single source of truth)
+- Update check executed once on initial load (no polling)
+- Version state handled independently from:
+   - filters
+   - payload construction
+   - analysis flow
+
+Maintains clean separation between:
+
+- system metadata (version, updates)
+- diagnostic state (logs, filters, payloads)
 
 ---
 
 ## 🎛️ UI & Behaviour
 
+- Added **Plugin Version** display in Diagnostics panel
+- Status bar now conditionally appends:
+   - `vX.X.X Update Available`
+- Update indicator:
+   - appears only when relevant
+   - uses tertiary accent colour
+   - does not interrupt workflow
+
 - New **Time filter control** integrated into filter panel
 - Status reflects active time scope (e.g. `Refreshed • ⏱ Last 15 minutes`)
 - Time filter behaves as an **AND constraint** across all other filters
 - Fully compatible with existing source/type/text filters
+
+---
+
+## 🔄 Version Awareness
+
+- Current version read directly from plugin metadata
+- Remote version checked via Sapphire update endpoint
+- Comparison performed client-side
+- Update state reflected in UI without blocking render
+
+Behaviour:
+
+- Version is displayed after initial load
+- Update check runs once per session
+- No background polling or repeated checks
+- Failures are silent (no user-facing errors)
 
 ---
 
@@ -53,6 +79,27 @@ Stability Enhancement / Data Integrity / Feature Expansion
    - dashboard display
 
 What you see is what gets analysed - without exceptions.
+
+---
+
+## ⏱️ Time Filter UX Completion
+
+Finalised behaviour for time filtering system:
+
+- Removed Apply button (live filtering now standard)
+- Custom range behaviour refined:
+   - From seeds to start of day if empty
+   - To seeds to current time if empty
+- Invalid ranges auto-corrected with user feedback
+- Time filter state fully persists across:
+   - refresh
+   - navigation
+   - reset flows (with defined reset semantics)
+
+- 12h / 24h display toggle added:
+   - display-only (internal format remains 24h)
+   - user preference persists
+   - does not affect payload or analysis
 
 ---
 
@@ -77,46 +124,46 @@ Behaviour:
    - From persists
    - To refreshes to current time
 
----
+## 🎨 UI Polish
 
-## 🎛️ UI & Behaviour
-- Custom time controls integrated into filter panel
-- Improved visual consistency across toolbar and filter inputs
-- Divider headings updated for full theme compatibility
-- Max lines input behaviour refined:
-   - Debounced refresh on valid input
-   - Normalisation on Enter / blur
-   - Enforced bounds (min / max / default)
+- Improved spacing and grouping of filter controls
+- Refined layout of time filter inputs and controls
+- Consistent alignment of action buttons
+- Enhanced visual clarity across themes
+
+---
 
 ---
 
 ## 🛠️ Implementation Notes
-- Added applyTimeFilterToLines(...) to payload construction path
-- Refactored time filter model:
-   - supports preset strings
-   - supports structured filter objects:
-      - { mode: "relative", preset }
-      - { mode: "absolute", from, to }
-- Introduced central activeTimeFilter state
-- Dynamic loading of Flatpickr assets from plugin bundle
-- Corrected UI initialisation order for datetime pickers
+- Added version helper module (`version.js`)
+- Added backend route for plugin metadata
+- Integrated Sapphire update check endpoint
+- Status rendering updated to support conditional HTML fragments
+- Separated render responsibilities:
+   - report rendering
+   - status rendering
+   - system metadata display
 
 ---
 
 ## 🧪 Testing
 
-- Verified payload integrity across:
-   - full view
-   - section view
-   - single issue scope
-- Confirmed elimination of:
-   - time-filter leakage into payloads
-   - summary mismatch with visible data
-- Validated custom datetime behaviour across mode transitions
+- Verified version display across reloads and sessions
+- Confirmed update detection against remote version changes
+- Tested both states:
+   - update available
+   - up-to-date (no indicator)
+
+- Regression testing:
+   - time filtering
+   - payload construction
+   - analysis scopes
+   - UI rendering
+
 - Cross-platform testing:
    - Windows
-   - Linux (Halo)
-- Stress-tested under repeated analysis triggers
+   - Linux
 
 ---
 
@@ -132,4 +179,4 @@ Behaviour:
 ## 📦 Status
 
 Stable and verified.
-Ready for wider community testing with improved diagnostic accuracy and consistency.
+Ready for release with improved UX, system awareness, and UI consistency.
