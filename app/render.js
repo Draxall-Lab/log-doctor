@@ -20,6 +20,8 @@ import {
   setAnalyseUiBusy,
 } from "./state.js";
 
+import { pluginVersionLabel } from "./version.js";
+
 function computeCountsFromSections(sections) {
   const sectionMap = [
     ["sapphire_errors", "sapphire", "error"],
@@ -219,6 +221,13 @@ export function renderReport(data) {
 
   const counts = computeCountsFromSections(data.raw_sections || data.sections || {});
 
+  const versionHtml = `
+  <div class="ld-kv">
+    <div class="ld-k">Plugin Version</div>
+    <div class="ld-v">${esc(pluginVersionLabel())}</div>
+  </div>
+`;
+
   summary.raw_matched_log_lines_by_category = summary.overall_summary;
   delete summary.overall_summary;
 
@@ -273,6 +282,7 @@ export function renderReport(data) {
           ? `
         <section class="ld-card ld-wide">
           <h2>Diagnostics</h2>
+          ${versionHtml}
           ${kvHtml(debug)}
 
           <h3>Last Analyse Payload</h3>

@@ -2,7 +2,7 @@
   "name": "log-doctor",
   "display_name": "Log Doctor",
   "short_name": "Log Doctor",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Diagnoses Sapphire issues using logs and a structured diagnostics panel.",
   "author": "Draxall",
   "icon": "🩺",
@@ -22,7 +22,12 @@
         "method": "POST",
         "path": "analyse",
         "handler": "routes/analyse.py:handle"
-      }
+      },
+      {
+        "method": "GET",
+        "path": "meta",
+        "handler": "routes/meta.py:handle"
+}
     ],
     "app": {
       "label": "Log Doctor",
