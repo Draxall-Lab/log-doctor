@@ -150,12 +150,10 @@ function groupedLinesHtml(lines, context = {}) {
 }
 
 function renderSection(title, lines, source, type) {
-
   if (!sectionVisible(source, type)) return "";
 
   const timeFilteredLines = applyTimeFilterToLines(lines, currentTimeFilter());
-  const filteredLines = applyTextFilterToLines(timeFilteredLines);
-  const panelPayload = buildScopedPayload("section-view", filteredLines, title);
+  const panelPayload = buildScopedPayload("section-view", timeFilteredLines, title);
 
   return `
     <section class="ld-card ld-wide">
@@ -163,7 +161,7 @@ function renderSection(title, lines, source, type) {
         <h2>${esc(title)}</h2>
         ${analyseButtonHtml(panelPayload, "Analyse this section in chat")}
       </div>
-      ${groupedLinesHtml(filteredLines, { title })}
+      ${groupedLinesHtml(timeFilteredLines, { title })}
     </section>
   `;
 }
@@ -219,7 +217,7 @@ export function renderReport(data) {
   const sections = data.sections || {};
   const debug = data.debug || {};
 
-  const counts = computeCountsFromSections(data.raw_sections || data.sections || {});
+ const counts = computeCountsFromSections(data.sections || {});
 
   const versionHtml = `
   <div class="ld-kv">
