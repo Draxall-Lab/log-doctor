@@ -223,13 +223,15 @@ These are edge-case behaviours and do not affect normal operation.
 
 ## 🧭 Version
 
-Current version: v0.3.9
-This version introduces:
+### v0.4.0
 
-- version awareness within the UI (Diagnostics panel)
-- one-shot update check on load
-- subtle update indicator in the status bar
-- improved UX separation between system metadata and analysis state
+Improved consistency of filtered results across the dashboard.
+
+Previously, the "Counts by Source" panel could show non-zero values while the corresponding section panels appeared empty when using text filters. This was caused by counts being calculated from a different data source than the rendered sections.
+
+Counts are now derived from the same filtered section data as the visible panels, ensuring everything stays in sync.
+
+Also includes minor internal cleanup to the filtering pipeline.
 
 ## 🧪 Status
 Functional testing: ✅
