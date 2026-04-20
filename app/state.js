@@ -6,6 +6,8 @@ let _lastAnalysePayload = null;
 let _analyseInFlight = false;
 let _analyseCooldownUntil = 0;
 
+const LD_LAST_ANALYSE_PAYLOAD_KEY = "ld:lastAnalysePayload";
+
 export function setContainer(container) {
   _container = container;
 }
@@ -20,10 +22,14 @@ export function getLastData() {
   return _lastData;
 }
 
-export function setLastAnalysePayload(lastAnalysePayload) {
-  _lastAnalysePayload = lastAnalysePayload;
+export function setLastAnalysePayload(payload) {
+  _lastAnalysePayload = payload || null;
+  saveLastAnalysePayloadToStorage(_lastAnalysePayload);
 }
+
 export function getLastAnalysePayload() {
+  if (_lastAnalysePayload) return _lastAnalysePayload;
+  _lastAnalysePayload = loadLastAnalysePayloadFromStorage();
   return _lastAnalysePayload;
 }
 
@@ -80,7 +86,37 @@ export function rerenderFromCache() {
 export function resetUiState() {
   _container = null;
   _lastData = null;
-  _lastAnalysePayload = null;
+  _lastAnalysePayload = null; // clear in-memory only; persisted copy remains
   _analyseInFlight = false;
   _analyseCooldownUntil = 0;
+}
+
+function saveLastAnalysePayloadToStorage(payload) {
+  try {
+    if (!payload) {
+      localStorage.removeItem(LD_LAST_ANALYSE_PAYLOAD_KEY);
+      return;
+    }
+    localStorage.setItem(
+      LD_LAST_ANALYSE_PAYLOAD_KEY,
+      JSON.stringify(payload)
+    );
+  } catch (_) {
+    // Ignore storage failures so diagnostics persistence never breaks the app
+  }
+}
+
+function loadLastAnalysePayloadFromStorage() {
+  try {
+    const raw = localStorage.getItem(LD_LAST_ANALYSE_PAYLOAD_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    try {
+      localStorage.removeItem(LD_LAST_ANALYSE_PAYLOAD_KEY);
+    } catch (_) {
+      // ignore cleanup failure
+    }
+    return null;
+  }
 }

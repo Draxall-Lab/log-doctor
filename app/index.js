@@ -1196,6 +1196,8 @@ discord+timeout-plugin"
     </div>
   `;
 
+  getLastAnalysePayload(); // hydrate persisted last payload into memory
+  
   const uiPrefs = loadUiPrefs();
   applyUiStateToDom(container, uiPrefs);
 
@@ -1551,5 +1553,4 @@ timeDisplaySelect?.addEventListener("change", () => {
 export function cleanup() {
   setContainer(null);
   setLastData(null);
-  setLastAnalysePayload(null);
 }
