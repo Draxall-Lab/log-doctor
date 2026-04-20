@@ -1,4 +1,4 @@
-# Log Doctor v0.4.0
+# Log Doctor v0.4.1
 
 Release Type:
 UX Enhancement / System Awareness / UI Polish
@@ -7,6 +7,7 @@ UX Enhancement / System Awareness / UI Polish
 
 ## 🚀 Highlights
 
+- Last Analyse payload now persists across page navigation and refresh, allowing users to return and copy it without re-running analysis.
 - Introduced plugin version awareness within the UI
 - Added one-shot update check on load
 - Implemented subtle update indicator in status bar

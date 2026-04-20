@@ -217,7 +217,9 @@ export function renderReport(data) {
   const sections = data.sections || {};
   const debug = data.debug || {};
 
- const counts = computeCountsFromSections(data.sections || {});
+  const counts = computeCountsFromSections(data.sections || {});
+  
+   const lastAnalysePayload = getLastAnalysePayload();
 
   const versionHtml = `
   <div class="ld-kv">
@@ -285,13 +287,13 @@ export function renderReport(data) {
 
           <h3>Last Analyse Payload</h3>
           ${
-            getLastAnalysePayload()
+            lastAnalysePayload
               ? `
-              <div class="ld-debug-payload">
-                <pre>${esc(JSON.stringify(getLastAnalysePayload(), null, 2))}</pre>
-                <button id="ld-copy-payload" class="ld-clear-btn" type="button">Copy Payload</button>
-              </div>
-            `
+                <div class="ld-debug-payload">
+                  <pre>${esc(JSON.stringify(lastAnalysePayload, null, 2))}</pre>
+                  <button id="ld-copy-payload" class="ld-clear-btn" type="button">Copy Payload</button>
+                </div>
+              `
               : `<div class="ld-empty">No payload sent yet.</div>`
           }
         </section>

@@ -223,7 +223,7 @@ These are edge-case behaviours and do not affect normal operation.
 
 ## 🧭 Version
 
-### v0.4.0
+### v0.4.1
 
 Improved consistency of filtered results across the dashboard.
 

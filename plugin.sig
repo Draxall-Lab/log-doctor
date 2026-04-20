@@ -1,16 +1,16 @@
 {
   "plugin": "log-doctor",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "files": {
     "app/api.js": "sha256:5ea340147e0a86602cffaccce6fcf2954b55956077f8c999a25a13eb85151b00",
     "app/debug.js": "sha256:9d867dc8565f71d8903b75ffd2f46c7e82364fc5709802e895b1f1a0840247c1",
     "app/events.js": "sha256:f313c36e2c30b669235437185314de132991c656d34e04dbceb16d8531c0bb61",
     "app/filters.js": "sha256:237dcd5c422e990fb251dae1bed116822f09730bac88a7020407d033c4637de0",
-    "app/index.js": "sha256:6edf24b3b2312c2329b4638d6cb5a0c00dd6b9be24852a646212c028a0cceb2d",
+    "app/index.js": "sha256:91bc8a684c3559de5e3d6eaa0d5ff85a50a9f46e2858ce65bbad819a936ca363",
     "app/payload.js": "sha256:5179f0bfcc49a6240a4c314ed2118aeb6d4c515f9ef875ece2c147bbbe55149e",
     "app/prefs.js": "sha256:f8c2e95ca22e405895e68060b27f493d28323fb8ae56eb94646e6e9433299b61",
-    "app/render.js": "sha256:4bb6d0a87a8654592c5f4e2513abae4b53dccd0d57652b6117cbf132a426177a",
-    "app/state.js": "sha256:e2b73169017f8d36e7aa2b53b8b5f2ce4d00d3dbcf745a857b3158f4c6521d9f",
+    "app/render.js": "sha256:e5acb9d90b2c538e42826a0962434760f368b4e89d8787c5b304cfc09b2bbca5",
+    "app/state.js": "sha256:040c16d5eb4e08eb8b32fd91660a38896c2f566cdbbf6fe2a36976a441e1e3a0",
     "app/vendor/flatpickr/flatpickr.min.css": "sha256:1b34a42552c96f10e4dfaaa4a367276b03868aacff63c1ac42ffe331352bc754",
     "app/vendor/flatpickr/flatpickr.min.js": "sha256:1eeab1cb779471a0b0aaa93dd91c2eb1aa537d696f01ab05ea9dabc55e8525a1",
     "app/vendor/flatpickr/LICENSE.md": "sha256:5fd57afc3905651175947ae44818e91ffcf5b605e4c88fac42d9700243bd9095",
@@ -18,13 +18,13 @@
     "core/log_parser.py": "sha256:bb0e81f262d2de16935b69305caee33980ac8118359f2f92c2346c427cef55b5",
     "core/path_utils.py": "sha256:4fe9eacb86e9b255f136557d9bc84ea02df2dd94231d6d2d6a29ff56441038f6",
     "hooks/context.py": "sha256:5144c1df675bbfca641e858681366745a5f3c1d9ec56ba6c17169a302612fbb0",
-    "plugin.json": "sha256:bccd5d87752df71c2a53b1c6705c04191ee9cf860986fc49341edfb625aad225",
-    "README.md": "sha256:0412b3644c910334d4b1eff35e5ee70f9c0437f5d49036662c932b5abd47db44",
+    "plugin.json": "sha256:2bf10a2daf78cf6272d1042946e12c05106032cc058409a29b44dd0e8ee327b0",
+    "README.md": "sha256:b17dcaf030f3b7f7dcc9181daed03f1cdbaab64831d7a3c7f56ce78435e34a33",
     "routes/analyse.py": "sha256:8c46a7803ed15c127c68b2f9a6ae056f9a8fb8c9d638821ec6483365f49a6a38",
     "routes/meta.py": "sha256:f09106ab0a91b45778c183b5755c879e1c5d49c1e1b61c1de0fcca7344aba0ef",
     "routes/report.py": "sha256:026807ce1511e018a91aafdcb662d602e0b0e5bdc57278cbf88047c1eab68eaa",
     "tools/log_doctor.py": "sha256:cf5f4110c7e40dd1876fefce2c164ed3d038f0cf8e6de45910dad0f9655e05e1",
-    "Version.md": "sha256:40dff5ecb6dee6cba20f4153334e4c74f820cfe9e28dbfd8cc08705bd867a114"
+    "Version.md": "sha256:726d8c8ac1f388818586713d481327f4e9c74b900e25a616e4d582486a8e360c"
   },
-  "signature": "kecwVu3XYrRVNf+jSEXs25kXb4gxCqfisqK78J+gQWs2uXFoCqb57cTQdIdavQTfFc03WqhOvOqQ3oeN+uEsCQ=="
+  "signature": "4TAPQs89OitoR0CStB6Z7pXED3qyrUAtRNekilBoMlVqwPdkpqQNcmcm1a4FqwicmXrCMZUsAwD1Kl3YluRcBA=="
 }
