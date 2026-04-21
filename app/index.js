@@ -642,16 +642,8 @@ function injectStyles() {
   }
  }
 
-   .ld-section-divider::before {
-     content: "";
-     position: absolute;
-     top: 50%;
-     left: 0;
-     right: 0;
-     height: 1px;
-     background: var(--ld-border-subtle);
-     opacity: 0.9;
-     z-index: 0;
+.ld-section-divider::before {
+  display: none;
 }
 
    .ld-section-divider h2 {

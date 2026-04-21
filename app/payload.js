@@ -94,20 +94,9 @@ export function buildScopedPayload(scope = "current-view", lines = null, label =
   const sections = data.sections || {};
   const rawBaseLines = lines || getVisibleBlocks(sections);
 
-  const timeScopedLines =
-    scope === "section-view" && lines
-      ? rawBaseLines
-      : applyTimeFilterToLines(rawBaseLines, currentTimeFilter());
-
-  const visibleLines =
-    scope === "section-view" && lines
-      ? timeScopedLines
-      : applyTextFilterToLines(timeScopedLines);
-
-  const grouped =
-    scope === "section-view" && lines
-      ? groupLines(visibleLines)
-      : applyTextFilterToGrouped(groupLines(visibleLines));
+  const timeScopedLines = applyTimeFilterToLines(rawBaseLines, currentTimeFilter());
+  const visibleLines = applyTextFilterToLines(timeScopedLines);
+  const grouped = applyTextFilterToGrouped(groupLines(visibleLines));
 
   let selected;
 

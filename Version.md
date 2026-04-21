@@ -1,4 +1,4 @@
-# Log Doctor v0.4.1
+# Log Doctor v0.4.2
 
 Release Type:
 UX Enhancement / System Awareness / UI Polish
@@ -34,7 +34,13 @@ Maintains clean separation between:
 
 ## 🎛️ UI & Behaviour
 
-- - Fixed mismatch between "Counts by Source" and section panels under text filtering (counts were derived from raw sections instead of filtered section data)
+v0.4.2
+- Fixed section-view analyse payload including items outside active text filter
+- Standardised payload filtering pipeline (time + text + grouped) across all scopes
+- Removed legacy section divider pseudo-element causing stray horizontal line in dashboard
+
+
+- Fixed mismatch between "Counts by Source" and section panels under text filtering (counts were derived from raw sections instead of filtered section data)
 - Added **Plugin Version** display in Diagnostics panel
 - Status bar now conditionally appends:
    - `vX.X.X Update Available`
