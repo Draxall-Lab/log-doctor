@@ -26,7 +26,7 @@ export function setLatestVersion(version, isAvailable = null) {
     _updateAvailable =
       isAvailable !== null
         ? isAvailable
-        : (!!_installedVersion && _latestVersion !== _installedVersion);
+        : (!!_installedVersion && versionGreaterThan(_latestVersion, _installedVersion));
 
     return;
   }
@@ -47,4 +47,23 @@ export function resetVersionState() {
   _installedVersion = null;
   _latestVersion = null;
   _updateAvailable = false;
+}
+
+function versionAtLeast(current, required) {
+  const c = String(current || "0.0.0").replace(/^v/i, "").split(".").map(Number);
+  const r = String(required || "0.0.0").replace(/^v/i, "").split(".").map(Number);
+
+  for (let i = 0; i < Math.max(c.length, r.length); i++) {
+    const cv = c[i] || 0;
+    const rv = r[i] || 0;
+
+    if (cv > rv) return true;
+    if (cv < rv) return false;
+  }
+
+  return true;
+}
+
+function versionGreaterThan(candidate, current) {
+  return versionAtLeast(candidate, current) && !versionAtLeast(current, candidate);
 }

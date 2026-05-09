@@ -1,17 +1,89 @@
-# Log Doctor v0.4.2
+# Log Doctor v0.5.0
 
 Release Type:
-UX Enhancement / System Awareness / UI Polish
+Cross-Plugin Integration / Investigation Workflow / Historical Snapshot Analysis
 
 ---
 
 ## 🚀 Highlights
 
-- Last Analyse payload now persists across page navigation and refresh, allowing users to return and copy it without re-running analysis.
-- Introduced plugin version awareness within the UI
-- Added one-shot update check on load
-- Implemented subtle update indicator in status bar
-- Completed time filter UX with persistence and live behaviour
+- Added Sapphire Sentry → Log Doctor investigation handoff
+- Introduced historical snapshot fallback analysis
+- Persistent Sentry investigation context across refresh/navigation
+- Smarter all-term search targeting for reduced noise during handoff analysis
+- Quick Start workflow guidance added to UI
+- Result trimming now respects configured max results
+- Improved version comparison handling
+
+---
+
+## 🛡️ Sapphire Sentry Integration
+
+Log Doctor now integrates directly with Sapphire Sentry.
+
+Sentry performs:
+- detection
+- triage
+- incident memory
+
+Log Doctor performs:
+- investigation
+- scoped analysis
+- contextual interpretation
+
+The Analyse button in Sentry now acts as a direct investigation handoff into Log Doctor.
+
+Features:
+
+- automatic filter targeting
+- snapshot-aware investigation
+- historical incident interpretation
+- persistent handoff state
+- correct handling of rotated or expired logs
+
+This allows Log Doctor to analyse both:
+
+- active live log evidence
+- historical Sentry-detected incidents no longer present in current logs
+
+Mental model:
+
+Sentry = radar
+Log Doctor = microscope
+
+---
+
+## 🧠 Historical Snapshot Analysis
+
+Log Doctor can now correctly analyse historical incidents detected by Sapphire Sentry even when matching log lines are no longer present in the active report window.
+
+This avoids false-clean interpretations caused by:
+
+- log rotation
+- changing log windows
+- transient incidents
+- expired runtime conditions
+
+Behaviour:
+
+- Current matching logs:
+  → analysed normally using live report data
+
+- Historical snapshot with no current matches:
+  → analysed using Sentry snapshot evidence and contextual fallback interpretation
+
+This preserves investigative continuity across time.
+
+---
+
+## 🔍 Search & Filtering Improvements
+
+- Sentry handoff searches now support all-term matching
+- Reduced noise in targeted investigations
+- Improved precision for grouped issue analysis
+- Section trimming now respects configured max results instead of fixed internal limits
+
+This improves reliability when investigating older or high-volume log datasets.
 
 ---
 
@@ -31,6 +103,18 @@ Maintains clean separation between:
 - diagnostic state (logs, filters, payloads)
 
 ---
+
+## 🎛️ UI & Workflow
+
+v0.5.0
+- Added Quick Start workflow guidance to the dashboard
+- Improved onboarding for investigation-based workflows
+- Clarified distinction between:
+   - full-view analysis
+   - section analysis
+   - issue-level analysis
+
+The UI now more clearly communicates that Log Doctor is an investigation workflow, not just a log viewer.
 
 ## 🎛️ UI & Behaviour
 
@@ -141,7 +225,6 @@ Behaviour:
 
 ---
 
----
 
 ## 🛠️ Implementation Notes
 - Added version helper module (`version.js`)
@@ -157,21 +240,20 @@ Behaviour:
 
 ## 🧪 Testing
 
-- Verified version display across reloads and sessions
-- Confirmed update detection against remote version changes
-- Tested both states:
-   - update available
-   - up-to-date (no indicator)
+Validated across:
 
-- Regression testing:
-   - time filtering
-   - payload construction
-   - analysis scopes
-   - UI rendering
+- active live incidents
+- historical rotated incidents
+- empty search states
+- rapid Sentry → Log Doctor handoffs
+- refresh/navigation persistence
+- stress-tested repeated analysis requests
 
-- Cross-platform testing:
-   - Windows
-   - Linux
+Confirmed correct separation between:
+
+- live analysis
+- historical fallback analysis
+- normal empty-result behaviour
 
 ---
 
@@ -187,4 +269,5 @@ Behaviour:
 ## 📦 Status
 
 Stable and verified.
-Ready for release with improved UX, system awareness, and UI consistency.
+
+v0.5.0 establishes Log Doctor as a contextual investigation layer for Sapphire rather than a standalone log viewer.

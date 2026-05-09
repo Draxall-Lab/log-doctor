@@ -34,6 +34,8 @@ import { setInstalledVersion,
          getLatestVersion,
          setLatestVersion } from "./version.js";
 
+import { handleSentryHandoff } from "./sentryHandoff.js";
+
 async function initVersionAwareness() {
   try {
 
@@ -543,11 +545,32 @@ function injectStyles() {
 }
 
 }
+.ld-quickstart {
+  margin: 0.75rem 0 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.ld-quickstart-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+}
+
+.ld-quickstart-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
 
   .ld-section-divider {
     grid-column: 1 / -1;
     margin: 2rem 0 1rem;
-    text-align: center;
+    margin-top: 0.4rem;
+    text-align: left;
     position: relative;
   }
 
@@ -1209,6 +1232,15 @@ discord+timeout-plugin"
 
     rebuildTimePickers(container, use12h);
 });
+
+    const handoffApplied = handleSentryHandoff(container);
+
+    if (handoffApplied) {
+      const state = readUiStateFromDom(container);
+      saveUiPrefs(state);
+
+      updateAndRender(container);
+   }
 
   function updateScopeStatus(prefix = "Refreshed") {
     const statusEl = container.querySelector("#ld-status");

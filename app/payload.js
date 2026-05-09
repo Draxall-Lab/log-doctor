@@ -4,6 +4,7 @@ import {
   currentTimeFilter,
   timeFilterLabel,
   parseFilterTerms,
+  matchesParsedTextFilter,
   getVisibleBlocks,
   applyTimeFilterToLines,
   applyTextFilterToLines,
@@ -11,7 +12,7 @@ import {
   groupLines 
 } from "./filters.js";
 
-import { getLastData } from "./state.js";
+import { getActiveSentryHandoff, getLastData } from "./state.js";
 
 let _analysePayloads = new Map();
 let _analyseSeq = 0;
@@ -177,9 +178,134 @@ export function buildIssuePayload(item, label = "Issue") {
 }
 
 export function buildAnalysePayload() {
-  return buildScopedPayload("current-view", null, "Main Analyse");
+  const handoff = getActiveSentryHandoff();
+
+  if (handoff && shouldUseSentrySnapshotFallback()) {
+    console.log("[LD analyse] Using Sentry snapshot fallback");
+    return buildSentrySnapshotFallbackPayload(handoff);
+  }
+
+  const payload = buildScopedPayload("current-view", null, "Main Analyse");
+
+  if (!payload) return null;
+
+  if (handoff && currentTextFilterMatchesHandoff(handoff)) {
+    console.log("[LD analyse] Using normal current-view payload with Sentry origin");
+
+    payload.origin = {
+      from: handoff.from,
+      type: handoff.type,
+      createdAt: handoff.createdAt,
+      mode: "sentry-handoff-current-match"
+    };
+
+    payload.sentrySnapshot = handoff.snapshot || null;
+  } else {
+    console.log("[LD analyse] Using normal current-view payload");
+  }
+
+  return payload;
 }
 
 export function clearAnalysePayloadRegistry() {
   _analysePayloads.clear();
+}
+
+function sentryHandoffSearchText(handoff) {
+  return (
+    handoff?.filter?.searchText ||
+    handoff?.filter?.text ||
+    handoff?.snapshot?.normalisedPattern ||
+    ""
+  ).trim();
+}
+
+function currentTextFilterMatchesHandoff(handoff) {
+  const input = document.querySelector("#ld-text-filter");
+  const current = (input?.value || "").trim();
+  const expected = sentryHandoffSearchText(handoff);
+
+  return !!expected && current === expected;
+}
+
+function rawSectionsContainHandoffMatch(rawSections, handoff) {
+  if (!rawSections || !handoff) return false;
+
+  const searchText = sentryHandoffSearchText(handoff);
+  if (!searchText) return false;
+
+  const parsed = parseFilterTerms(searchText);
+
+  for (const lines of Object.values(rawSections)) {
+    for (const line of lines || []) {
+      if (matchesParsedTextFilter(line, parsed)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+export function buildSentrySnapshotFallbackPayload(handoff) {
+  const snap = handoff.snapshot || {};
+
+  return {
+    source: "log-doctor",
+    scope: "sentry-snapshot-fallback",
+    label: "Sentry Snapshot Fallback",
+    generatedAt: new Date().toISOString(),
+
+    origin: {
+      from: handoff.from,
+      type: handoff.type,
+      createdAt: handoff.createdAt
+    },
+
+    filters: {
+      displayText: handoff.filter?.text || "",
+      searchText: handoff.filter?.searchText || "",
+      mode: handoff.filter?.mode || null,
+      source: handoff.filter?.source || null,
+      category: handoff.filter?.category || null
+    },
+
+    sentrySnapshot: {
+      id: snap.id || null,
+      scanId: snap.scanId || null,
+      scanTimestamp: snap.scanTimestamp || null,
+      source: snap.source || null,
+      category: snap.category || null,
+      patternKey: snap.patternKey || null,
+      normalisedPattern: snap.normalisedPattern || "",
+      count: snap.count || 0,
+      firstSeen: snap.firstSeen || null,
+      lastSeen: snap.lastSeen || null,
+      sample: snap.sample || ""
+    },
+
+    warning:
+      "No matching lines were found in the current Log Doctor report for this Sentry handoff. Analyse this as historical Sentry snapshot evidence. Current logs may have rotated, changed, or fallen outside the active analysis window.",
+
+    analysisInstructions: [
+      "Explain what the historical Sentry event likely represented.",
+      "Do not treat absence of current matches as proof that no issue ever existed.",
+      "Consider whether the absence of recurrence may suggest the issue was transient or resolved.",
+      "Recommend whether monitoring or further investigation is sensible."
+    ]
+  };
+}
+
+export function shouldUseSentrySnapshotFallback() {
+  const handoff = getActiveSentryHandoff();
+  if (!handoff) return false;
+
+  if (!currentTextFilterMatchesHandoff(handoff)) {
+    return false;
+  }
+
+  const data = getLastData();
+  const rawSections = data?.raw_sections || {};
+
+  return !rawSectionsContainHandoffMatch(rawSections, handoff);
 }

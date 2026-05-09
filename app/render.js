@@ -233,6 +233,15 @@ export function renderReport(data) {
 
   output.innerHTML = `
     <div class="ld-grid">
+      <div class="ld-quickstart">
+        <div class="ld-quickstart-title">🧠 QUICK START</div>
+
+        <div class="ld-quickstart-steps">
+          <div>1. Click <strong>“Analyse in Chat”</strong> for a full AI-assisted investigation</div>
+          <div>2. Use filters and time ranges to narrow the log scope</div>
+          <div>3. Use <strong>🧠</strong> buttons to investigate specific incidents or sections</div>
+        </div>
+      </div>
       <section class="ld-section-divider">
          <h2>Overview</h2>
       </section>

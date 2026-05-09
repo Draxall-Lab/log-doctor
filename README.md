@@ -1,8 +1,8 @@
 #  🧠 Log Doctor
 
-Log Doctor is a diagnostic dashboard and AI-assisted analysis tool for Sapphire.
+Log Doctor is a diagnostic dashboard and AI-assisted investigation tool for Sapphire.
 
-It turns raw application logs into structured, grouped issues and allows you to analyse them directly in chat using a payload-driven system.
+It transforms raw application logs into structured issues, scoped investigations, and contextual analysis workflows.
 
 It continues to function even without an AI provider, making it useful as both a diagnostic tool and an AI-assisted interpreter.
 
@@ -117,6 +117,30 @@ UI-scoped
 payload-driven
 injected into chat via hidden context
 
+### 🛡️ Sapphire Sentry Integration (v0.5.0)
+
+Log Doctor now integrates directly with Sapphire Sentry.
+
+Sentry detects and triages incidents.
+Log Doctor performs deeper investigation and interpretation.
+
+Features:
+
+- One-click handoff from Sentry → Log Doctor
+- Automatic filter targeting from Sentry snapshots
+- Persistent investigation context across refresh/navigation
+- Historical snapshot fallback analysis
+- Correct handling of rotated or expired logs
+
+This allows Log Doctor to analyse:
+
+- current live log evidence
+- historical Sentry-detected incidents
+- transient issues no longer present in active logs
+
+Sentry acts as the radar.
+Log Doctor acts as the microscope.
+
 ### ⚙️ Robust Interaction Model
 One-shot payload system (no tool recursion)
 In-memory payload registry (no DOM JSON corruption)
@@ -176,6 +200,7 @@ Chat acts purely as interpreter
 ## 📘 Mini User Guide
 🔹 Basic Workflow
 Click Refresh to load logs
+Or open incidents directly from Sapphire Sentry
 Apply filters:
 Source (Sapphire, Kokoro, etc.)
 Type (Errors, Warnings, Debug, Plugin)
@@ -223,15 +248,23 @@ These are edge-case behaviours and do not affect normal operation.
 
 ## 🧭 Version
 
-### v0.4.2
+### v0.5.0
 
-Improved consistency of filtered results across the dashboard.
+Introduced Sapphire Sentry integration and historical snapshot analysis.
 
-Previously, the "Counts by Source" panel could show non-zero values while the corresponding section panels appeared empty when using text filters. This was caused by counts being calculated from a different data source than the rendered sections.
+Key additions:
 
-Counts are now derived from the same filtered section data as the visible panels, ensuring everything stays in sync.
+- One-click Sentry → Log Doctor investigation handoff
+- Persistent investigation context
+- Historical snapshot fallback analysis
+- Improved search targeting using all-term matching
+- Quick Start guidance for investigation workflows
+- Result section trimming now respects configured max results
+- Improved update version comparison handling
 
-Also includes minor internal cleanup to the filtering pipeline.
+Log Doctor can now correctly analyse both:
+- live current log evidence
+- historical Sentry-detected incidents no longer present in active logs
 
 ## 🧪 Status
 Functional testing: ✅
@@ -253,7 +286,6 @@ portable payloads for external analysis
 flexible interpretation across different AI systems
 
 ## 📌 Future Ideas
-Time-aware summary metrics (Counts by Source alignment)
 Enhanced custom time controls (presets + saved ranges)
 Trend detection
 Root cause clustering

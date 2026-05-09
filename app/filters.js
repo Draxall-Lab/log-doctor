@@ -101,7 +101,7 @@ function groupedItemSearchText(item) {
     .toLowerCase();
 }
 
-function matchesParsedTextFilter(item, parsed) {
+export function matchesParsedTextFilter(item, parsed) {
   if (!parsed) return true;
 
   const haystack = groupedItemSearchText(item);
