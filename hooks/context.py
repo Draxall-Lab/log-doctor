@@ -137,10 +137,55 @@ def _format_issues(issues: list) -> str:
 
     return "\n\n".join(blocks)
 
+def _build_sentry_snapshot_fallback_context(payload):
+    snap = payload.get("sentrySnapshot") or {}
+    filters = payload.get("filters") or {}
+    origin = payload.get("origin") or {}
+
+    lines = [
+        "Log Doctor is analysing a historical Sapphire Sentry snapshot fallback.",
+        "",
+        "Important interpretation rule:",
+        "- Current Log Doctor logs do not contain matching lines for this Sentry handoff.",
+        "- Do not describe this as a clean system or as no issue existing.",
+        "- Treat the Sentry snapshot as historical evidence of a previously detected issue.",
+        "- The absence of current matches may mean the issue was transient, resolved, rotated out of logs, or outside the current analysis window.",
+        "",
+        "Sentry snapshot evidence:",
+        f"- Scan ID: {snap.get('scanId') or 'unknown'}",
+        f"- Scan timestamp: {snap.get('scanTimestamp') or 'unknown'}",
+        f"- Source: {snap.get('source') or 'unknown'}",
+        f"- Category: {snap.get('category') or 'unknown'}",
+        f"- Pattern key: {snap.get('patternKey') or 'unknown'}",
+        f"- Pattern: {snap.get('normalisedPattern') or 'unknown'}",
+        f"- Count: {snap.get('count') or 0}",
+        f"- First seen: {snap.get('firstSeen') or 'unknown'}",
+        f"- Last seen: {snap.get('lastSeen') or 'unknown'}",
+        f"- Sample: {snap.get('sample') or 'none provided'}",
+        "",
+        "Filter used in Log Doctor:",
+        f"- Display text: {filters.get('displayText') or 'unknown'}",
+        f"- Search text: {filters.get('searchText') or 'unknown'}",
+        f"- Mode: {filters.get('mode') or 'unknown'}",
+        "",
+        "Analysis task:",
+        "- Explain what the historical event likely represented.",
+        "- Estimate likely severity and impact.",
+        "- Explain what, if anything, can be inferred from the absence of current matching logs.",
+        "- Recommend whether monitoring or further investigation is sensible.",
+        "- Be clear about uncertainty."
+    ]
+
+    return "\n".join(lines)
 
 def _build_context(payload: dict) -> str:
     source = payload.get("source", "log-doctor")
     scope = payload.get("scope", "unknown")
+
+    # ✅ special handling for historical Sentry snapshot fallback
+    if scope == "sentry-snapshot-fallback":
+        return _build_sentry_snapshot_fallback_context(payload)
+
     generated_at = payload.get("generated_at", "")
     filters = payload.get("filters") or {}
     summary = payload.get("summary") or {}

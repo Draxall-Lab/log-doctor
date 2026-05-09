@@ -7,6 +7,7 @@ let _analyseInFlight = false;
 let _analyseCooldownUntil = 0;
 
 const LD_LAST_ANALYSE_PAYLOAD_KEY = "ld:lastAnalysePayload";
+const LD_ACTIVE_SENTRY_HANDOFF_KEY = "log-doctor:active-sentry-handoff";
 
 export function setContainer(container) {
   _container = container;
@@ -119,4 +120,53 @@ function loadLastAnalysePayloadFromStorage() {
     }
     return null;
   }
+}
+
+function saveActiveSentryHandoffToStorage(handoff) {
+  try {
+    if (!handoff) {
+      localStorage.removeItem(LD_ACTIVE_SENTRY_HANDOFF_KEY);
+      return;
+    }
+
+    localStorage.setItem(
+      LD_ACTIVE_SENTRY_HANDOFF_KEY,
+      JSON.stringify(handoff)
+    );
+  } catch (_) {
+    // Ignore storage failures so handoff persistence never breaks the app
+  }
+}
+
+function loadActiveSentryHandoffFromStorage() {
+  try {
+    const raw = localStorage.getItem(LD_ACTIVE_SENTRY_HANDOFF_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    try {
+      localStorage.removeItem(LD_ACTIVE_SENTRY_HANDOFF_KEY);
+    } catch (_) {
+      // ignore cleanup failure
+    }
+    return null;
+  }
+}
+
+let _activeSentryHandoff = null;
+
+export function setActiveSentryHandoff(handoff) {
+  _activeSentryHandoff = handoff || null;
+  saveActiveSentryHandoffToStorage(_activeSentryHandoff);
+}
+
+export function getActiveSentryHandoff() {
+  if (_activeSentryHandoff) return _activeSentryHandoff;
+  _activeSentryHandoff = loadActiveSentryHandoffFromStorage();
+  return _activeSentryHandoff;
+}
+
+export function clearActiveSentryHandoff() {
+  _activeSentryHandoff = null;
+  saveActiveSentryHandoffToStorage(null);
 }
